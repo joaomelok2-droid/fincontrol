@@ -5390,74 +5390,76 @@ function iniciarMonitorNotificacoes(){
 // ══════════════════════════════════════════════
 // INICIALIZAÇÃO — SEMPRE TELA DE LOGIN
 // ══════════════════════════════════════════════
+async function processarSessaoGoogle(user){
+  const email = user.email;
+  const nomeGoogle = user.user_metadata?.full_name || email?.split('@')[0] || 'Usuário';
+  const emailId = 'google_' + user.id.slice(0,8);
+
+  // Limpa hash da URL
+  if(window.location.hash) history.replaceState(null, '', window.location.pathname);
+
+  // Verifica acesso
+  if(email){
+    const temAcesso = await sbVerificarAcesso(user.id, email);
+    if(!temAcesso) return;
+    admVerificarAdmin(email);
+  }
+
+  // Cria ou usa perfil Google
+  let perfilGoogle = perfis.find(p => p.id === emailId);
+  if(!perfilGoogle){
+    perfilGoogle = { id:emailId, nome:nomeGoogle, emoji:'👤', cor:'#185FA5', inicial:nomeGoogle[0].toUpperCase() };
+    perfis.push(perfilGoogle);
+    SS('fc_perfis', perfis);
+  }
+
+  perfilAtivo = emailId;
+  esconderLogin();
+  document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open','sobre-login'));
+  renderPerfis();
+  renderGeral();
+  renderReceitas();
+  iniciarMonitorNotificacoes();
+
+  _sbUserId = user.id;
+  _sbSyncAtivo = true;
+  await sbCarregarTudo();
+  sbObservar();
+  sbAtualizarIndicador(true);
+  showToast('✅ Bem-vindo, ' + nomeGoogle + '!');
+}
+
 (async function iniciarApp(){
   perfilAtivo = null;
   localStorage.removeItem('fc_perfilAtivo');
   renderGeral();
   renderReceitas();
   iniciarMonitorNotificacoes();
-
-  // Verifica se voltou de um redirect OAuth do Google
-  if(window._sbReady){
-    const hash = window.location.hash;
-    const hasToken = hash.includes('access_token') || hash.includes('error_description');
-
-    if(hasToken){
-      // Aguarda o Supabase processar o token do hash
-      document.getElementById('telaLogin').style.display = 'flex';
-      renderLoginPerfis();
-
-      // Pequeno delay para o Supabase processar
-      await new Promise(r => setTimeout(r, 500));
-      const { data } = await window._sbClient.auth.getSession();
-
-      if(data?.session?.user){
-        const user = data.session.user;
-        const email = user.email;
-        const nomeGoogle = user.user_metadata?.full_name || email?.split('@')[0] || 'Usuário';
-        const emailId = 'google_' + user.id.slice(0,8);
-
-        // Limpa o hash da URL
-        history.replaceState(null, '', window.location.pathname);
-
-        // Verifica acesso
-        if(email){
-          const temAcesso = await sbVerificarAcesso(user.id, email);
-          if(!temAcesso) return;
-          admVerificarAdmin(email);
-        }
-
-        // Cria ou usa perfil Google
-        let perfilGoogle = perfis.find(p => p.id === emailId);
-        if(!perfilGoogle){
-          perfilGoogle = { id:emailId, nome:nomeGoogle, emoji:'👤', cor:'#185FA5', inicial:nomeGoogle[0].toUpperCase() };
-          perfis.push(perfilGoogle);
-          SS('fc_perfis', perfis);
-        }
-
-        perfilAtivo = emailId;
-        esconderLogin();
-        document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open','sobre-login'));
-        renderPerfis();
-        renderGeral();
-        renderReceitas();
-
-        _sbUserId = user.id;
-        _sbSyncAtivo = true;
-        await sbCarregarTudo();
-        sbObservar();
-        sbAtualizarIndicador(true);
-        showToast('✅ Bem-vindo, ' + nomeGoogle + '!');
-        return;
-      }
-    }
-
-    // Verifica sessão existente
-    await sbVerificarSessao();
-  }
-
   renderLoginPerfis();
   document.getElementById('telaLogin').style.display = 'flex';
+
+  if(!window._sbReady) return;
+
+  // Escuta mudanças de autenticação (captura redirect OAuth)
+  window._sbClient.auth.onAuthStateChange(async (event, session) => {
+    console.log('Auth event:', event, session?.user?.email);
+    if((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user){
+      await processarSessaoGoogle(session.user);
+    } else if(event === 'SIGNED_OUT'){
+      sbPararSync();
+    }
+  });
+
+  // Verifica sessão existente (caso já logado)
+  try {
+    // Tenta pegar sessão do hash (OAuth redirect)
+    const { data: sessionData } = await window._sbClient.auth.getSession();
+    if(sessionData?.session?.user){
+      await processarSessaoGoogle(sessionData.session.user);
+    }
+  } catch(e){
+    console.warn('Session check error:', e);
+  }
 })();
 </script>
 </body>
