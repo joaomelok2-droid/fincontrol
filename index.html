@@ -4804,8 +4804,58 @@ async function sbVerificarSessao(){
   }
   // Escuta mudanças de sessão
   window._sbClient.auth.onAuthStateChange(async (event, session) => {
-    if(event === 'SIGNED_IN' && session?.user?.id && perfilAtivo){
-      await sbIniciarSync(session.user.id);
+    if(event === 'SIGNED_IN' && session?.user?.id){
+      _sbUserId = session.user.id;
+      const email = session.user.email;
+
+      // Se veio de redirect OAuth (hash na URL), cria perfil automático e entra
+      if(window.location.hash.includes('access_token') || window.location.hash.includes('error')){
+        // Limpa o hash da URL
+        history.replaceState(null, '', window.location.pathname);
+      }
+
+      // Verifica acesso no Supabase
+      if(email){
+        const temAcesso = await sbVerificarAcesso(session.user.id, email);
+        if(!temAcesso) return;
+        admVerificarAdmin(email);
+      }
+
+      // Cria ou usa perfil Google automaticamente
+      const nomeGoogle = session.user.user_metadata?.full_name || email?.split('@')[0] || 'Usuário';
+      const emailId = 'google_' + session.user.id.slice(0,8);
+
+      // Verifica se já existe perfil para este usuário Google
+      let perfilGoogle = perfis.find(p => p.id === emailId);
+      if(!perfilGoogle){
+        perfilGoogle = {
+          id: emailId,
+          nome: nomeGoogle,
+          emoji: '👤',
+          cor: '#185FA5',
+          inicial: nomeGoogle[0].toUpperCase()
+        };
+        perfis.push(perfilGoogle);
+        SS('fc_perfis', perfis);
+      }
+
+      // Entra com o perfil Google
+      perfilAtivo = emailId;
+      esconderLogin();
+      document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open','sobre-login'));
+      renderPerfis();
+      renderGeral();
+      renderReceitas();
+      iniciarMonitorNotificacoes();
+
+      // Sincroniza dados
+      _sbSyncAtivo = true;
+      await sbCarregarTudo();
+      sbObservar();
+      sbAtualizarIndicador(true);
+
+      showToast('✅ Bem-vindo, ' + nomeGoogle + '!');
+
     } else if(event === 'SIGNED_OUT'){
       sbPararSync();
     }
