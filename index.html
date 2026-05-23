@@ -960,38 +960,37 @@ if(SUPABASE_URL !== 'COLE_AQUI_SUA_URL' && SUPABASE_KEY !== 'COLE_AQUI_SUA_ANON_
 
     <!-- Etapa 1: escolher perfil -->
     <div id="loginEtapa1">
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:#9A8E7E;margin-bottom:12px">Selecione seu perfil</div>
-      <div id="loginPerfisGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px"></div>
-      <div style="display:flex;align-items:center;gap:10px;margin:12px 0">
+
+      <!-- Botão Google SEMPRE visível -->
+      <div id="googleLoginArea" style="margin-bottom:14px">
+        <button onclick="sbLoginGoogle()" style="width:100%;padding:12px;background:#fff;color:#3c4043;border:1.5px solid #dadce0;border-radius:12px;cursor:pointer;font-size:14px;font-weight:500;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 1px 4px rgba(0,0,0,.08);transition:.15s" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,.15)'" onmouseout="this.style.boxShadow='0 1px 4px rgba(0,0,0,.08)'">
+          <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          Entrar com Google
+        </button>
+        <div id="fbErro" style="display:none;font-size:11px;color:#A32D2D;margin-top:6px;padding:6px 10px;background:#FCEBEB;border-radius:6px;text-align:center"></div>
+      </div>
+
+      <!-- Divisor -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
         <div style="flex:1;height:1px;background:rgba(180,160,120,.25)"></div>
-        <span style="font-size:11px;color:#C9A84C">OU</span>
+        <span style="font-size:11px;color:#9A8E7E">ou acesse perfil local</span>
         <div style="flex:1;height:1px;background:rgba(180,160,120,.25)"></div>
       </div>
-      <button onclick="abrirNovoPerfil()" style="width:100%;padding:12px;border-radius:12px;border:2px dashed rgba(201,168,76,.5);background:rgba(201,168,76,.06);color:#C9A84C;cursor:pointer;font-size:13px;font-weight:600;font-family:DM Sans,sans-serif">
+
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:#9A8E7E;margin-bottom:12px">Perfis neste dispositivo</div>
+      <div id="loginPerfisGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px"></div>
+      <button onclick="abrirNovoPerfil()" style="width:100%;padding:12px;border-radius:12px;border:2px dashed rgba(201,168,76,.5);background:rgba(201,168,76,.06);color:#C9A84C;cursor:pointer;font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif">
         + Criar novo perfil
       </button>
 
-      <!-- Firebase Sync Banner -->
-      <div id="fbSyncBanner" style="display:none;margin-top:14px;padding:12px 14px;background:linear-gradient(135deg,#E6F1FB,#F0F7FF);border-radius:12px;border:1px solid rgba(24,95,165,.2)">
-        <div style="font-size:12px;font-weight:600;color:#185FA5;margin-bottom:8px;display:flex;align-items:center;gap:6px">
-          <i class="ti ti-cloud" style="font-size:14px"></i> Sincronização em Nuvem
-        </div>
-        <div style="font-size:11px;color:#185FA5;opacity:.8;margin-bottom:10px">Entre com email para sincronizar entre todos os seus dispositivos</div>
-        <input type="email" id="fbEmail" placeholder="seu@email.com" style="width:100%;padding:9px 12px;border:1px solid rgba(24,95,165,.3);border-radius:8px;font-size:13px;margin-bottom:6px;outline:none;font-family:DM Sans,sans-serif;box-sizing:border-box;background:#fff">
-        <input type="password" id="fbSenha" placeholder="Senha (mín. 6 caracteres)" style="width:100%;padding:9px 12px;border:1px solid rgba(24,95,165,.3);border-radius:8px;font-size:13px;margin-bottom:8px;outline:none;font-family:DM Sans,sans-serif;box-sizing:border-box;background:#fff" onkeydown="if(event.key==='Enter')fbLogin()">
-        <div id="fbErro" style="display:none;font-size:11px;color:#A32D2D;margin-bottom:6px;padding:6px 10px;background:#FCEBEB;border-radius:6px"></div>
+      <!-- Banner email/senha (oculto, só aparece se quiser entrar por email) -->
+      <div id="fbSyncBanner" style="display:none;margin-top:12px;padding:12px 14px;background:linear-gradient(135deg,#E6F1FB,#F0F7FF);border-radius:12px;border:1px solid rgba(24,95,165,.2)">
+        <div style="font-size:12px;font-weight:600;color:#185FA5;margin-bottom:8px">Entrar com Email</div>
+        <input type="email" id="fbEmail" placeholder="seu@email.com" style="width:100%;padding:9px 12px;border:1px solid rgba(24,95,165,.3);border-radius:8px;font-size:13px;margin-bottom:6px;outline:none;font-family:'DM Sans',sans-serif;box-sizing:border-box;background:#fff">
+        <input type="password" id="fbSenha" placeholder="Senha (mín. 6 caracteres)" style="width:100%;padding:9px 12px;border:1px solid rgba(24,95,165,.3);border-radius:8px;font-size:13px;margin-bottom:8px;outline:none;font-family:'DM Sans',sans-serif;box-sizing:border-box;background:#fff" onkeydown="if(event.key==='Enter')sbLogin()">
         <div style="display:flex;gap:6px">
-          <button onclick="sbLoginGoogle()" style="width:100%;padding:10px;background:#fff;color:#3c4043;border:1px solid #dadce0;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;font-family:DM Sans,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:6px">
-        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-        Entrar com Google
-      </button>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <div style="flex:1;height:1px;background:rgba(24,95,165,.2)"></div>
-        <span style="font-size:11px;color:#185FA5">ou</span>
-        <div style="flex:1;height:1px;background:rgba(24,95,165,.2)"></div>
-      </div>
-      <button onclick="sbLogin()" style="flex:1;width:100%;padding:9px;background:#185FA5;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12.5px;font-weight:600;font-family:DM Sans,sans-serif">Entrar com Email</button>
-          <button onclick="document.getElementById('fbSyncBanner').style.display='none'" style="padding:9px 12px;background:none;border:1px solid rgba(24,95,165,.3);border-radius:8px;cursor:pointer;font-size:12px;color:#185FA5;font-family:DM Sans,sans-serif">Pular</button>
+          <button onclick="sbLogin()" style="flex:1;padding:9px;background:#185FA5;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12.5px;font-weight:600;font-family:'DM Sans',sans-serif">Entrar</button>
+          <button onclick="document.getElementById('fbSyncBanner').style.display='none'" style="padding:9px 12px;background:none;border:1px solid rgba(24,95,165,.3);border-radius:8px;cursor:pointer;font-size:12px;color:#185FA5;font-family:'DM Sans',sans-serif">Cancelar</button>
         </div>
       </div>
     </div>
