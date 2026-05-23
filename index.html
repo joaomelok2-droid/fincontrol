@@ -4732,11 +4732,12 @@ async function sbLoginGoogle(){
     const { data, error } = await window._sbClient.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.href
+        skipBrowserRedirect: false,
+        queryParams: { prompt: 'select_account' },
+        redirectTo: 'https://joaomelok2-droid.github.io/fincontrol/'
       }
     });
     if(error) throw error;
-    // O redirecionamento acontece automaticamente
   } catch(e){
     alert('Erro ao conectar com Google: ' + e.message);
   }
