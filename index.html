@@ -4540,7 +4540,7 @@ function renderAdmin(){
 }
 
 // ═══════════════════════════════════════════════
-// SUPABASE SYNC
+// SUPABASE SYNC — VERSÃO SIMPLIFICADA
 // ═══════════════════════════════════════════════
 let _sbSyncAtivo    = false;
 let _sbSubscriptions = [];
@@ -4549,35 +4549,50 @@ let _sbUserId        = null;
 const COLS_SYNC = ['receitas','despesas','cartoes','compras','diario',
                    'emprestimos','sonhos','aportes','carteiraInv','eventos','pagosMes'];
 
+// Função auxiliar para fazer requisições REST diretamente
+async function sbREST(method, path, body){
+  const url = SUPABASE_URL + '/rest/v1/' + path;
+  const resp = await fetch(url, {
+    method,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': method === 'POST' ? 'resolution=merge-duplicates' : ''
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if(!resp.ok){
+    const err = await resp.text();
+    throw new Error(err);
+  }
+  return resp.status === 204 ? null : resp.json();
+}
+
 // ── Salva uma coleção no Supabase ──
 async function sbSalvar(col, dados){
   if(!window._sbReady || !_sbUserId) return;
   const agora = new Date().toISOString();
   localStorage.setItem(`fc_ts_${perfilAtivo}_${col}`, agora);
   try {
-    const { error } = await window._sbClient
-      .from('fincontrol_dados')
-      .upsert({
-        user_id:   _sbUserId,
-        perfil_id: perfilAtivo,
-        colecao:   col,
-        dados:     JSON.stringify(dados),
-        atualizado: agora
-      }, { onConflict: 'user_id,perfil_id,colecao' });
-    if(error) console.warn('Supabase save error:', error.message);
-  } catch(e){ console.warn('sbSalvar error:', e); }
+    await sbREST('POST', 'fincontrol_dados', {
+      user_id:   _sbUserId,
+      perfil_id: perfilAtivo,
+      colecao:   col,
+      dados:     JSON.stringify(dados),
+      atualizado: agora
+    });
+    console.log('✅ Salvo:', col, dados.length, 'itens');
+  } catch(e){ console.warn('sbSalvar error:', col, e.message); }
 }
 
 // ── Carrega todas as coleções do Supabase ──
 async function sbCarregarTudo(){
   if(!window._sbReady || !_sbUserId) return;
   try {
-    const { data, error } = await window._sbClient
-      .from('fincontrol_dados')
-      .select('colecao, dados, atualizado')
-      .eq('user_id', _sbUserId)
-      .eq('perfil_id', perfilAtivo);
-    if(error){ console.warn('sbCarregar error:', error.message); return; }
+    const data = await sbREST('GET',
+      `fincontrol_dados?user_id=eq.${_sbUserId}&perfil_id=eq.${perfilAtivo}&select=colecao,dados,atualizado`
+    );
     if(!data) return;
 
     data.forEach(row => {
@@ -4594,7 +4609,7 @@ async function sbCarregarTudo(){
         } else {
           if(!tsLocal || (tsRemoto && tsRemoto > tsLocal)){
             SS(`fc_${perfilAtivo}_${row.colecao}`, itensRemoto);
-          } else if(tsLocal > tsRemoto){
+          } else {
             sbSalvar(row.colecao, itensLocal);
           }
         }
@@ -4610,7 +4625,7 @@ async function sbCarregarTudo(){
     });
 
     renderAll();
-    showToast('☁️ Dados sincronizados com a nuvem!');
+    showToast('☁️ Dados sincronizados!');
   } catch(e){ console.warn('sbCarregarTudo error:', e); }
 }
 
@@ -4919,12 +4934,17 @@ async function forcarSync(){
   }
   showToast('🔄 Sincronizando...');
   try {
-    const { data, error } = await window._sbClient
-      .from('fincontrol_dados')
-      .select('colecao, dados, atualizado')
-      .eq('user_id', _sbUserId)
-      .eq('perfil_id', perfilAtivo);
-    if(error) throw error;
+    // Primeiro envia todos os dados locais para o Supabase
+    for(const col of COLS_SYNC){
+      const itensLocal = LS(`fc_${perfilAtivo}_${col}`) || [];
+      if(itensLocal.length > 0){
+        await sbSalvar(col, itensLocal);
+      }
+    }
+    // Depois carrega do Supabase
+    const data = await sbREST('GET',
+      `fincontrol_dados?user_id=eq.${_sbUserId}&perfil_id=eq.${perfilAtivo}&select=colecao,dados,atualizado`
+    );
     if(data){
       data.forEach(row => {
         try {
@@ -4939,7 +4959,8 @@ async function forcarSync(){
       showToast('✅ Sincronização concluída!');
     }
   } catch(e){
-    showToast('❌ Erro ao sincronizar: ' + e.message);
+    showToast('❌ Erro: ' + e.message);
+    console.warn('forcarSync error:', e);
   }
 }
 
@@ -4955,12 +4976,17 @@ async function forcarSync(){
   }
   showToast('🔄 Sincronizando...');
   try {
-    const { data, error } = await window._sbClient
-      .from('fincontrol_dados')
-      .select('colecao, dados, atualizado')
-      .eq('user_id', _sbUserId)
-      .eq('perfil_id', perfilAtivo);
-    if(error) throw error;
+    // Primeiro envia todos os dados locais para o Supabase
+    for(const col of COLS_SYNC){
+      const itensLocal = LS(`fc_${perfilAtivo}_${col}`) || [];
+      if(itensLocal.length > 0){
+        await sbSalvar(col, itensLocal);
+      }
+    }
+    // Depois carrega do Supabase
+    const data = await sbREST('GET',
+      `fincontrol_dados?user_id=eq.${_sbUserId}&perfil_id=eq.${perfilAtivo}&select=colecao,dados,atualizado`
+    );
     if(data){
       data.forEach(row => {
         try {
@@ -4975,7 +5001,8 @@ async function forcarSync(){
       showToast('✅ Sincronização concluída!');
     }
   } catch(e){
-    showToast('❌ Erro ao sincronizar: ' + e.message);
+    showToast('❌ Erro: ' + e.message);
+    console.warn('forcarSync error:', e);
   }
 }
 
