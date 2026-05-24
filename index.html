@@ -4574,13 +4574,25 @@ async function sbCarregarTudo(){
       .eq('perfil_id', perfilAtivo);
     if(error){ console.warn('sbCarregar error:', error.message); return; }
     if(!data) return;
+
+    let carregou = false;
     data.forEach(row => {
       try {
-        const itens = JSON.parse(row.dados || '[]');
-        SS(`fc_${perfilAtivo}_${row.colecao}`, itens);
+        const itensRemoto = JSON.parse(row.dados || '[]');
+        const itensLocal  = LS(`fc_${perfilAtivo}_${row.colecao}`) || [];
+
+        // Só sobrescreve se o remoto tiver dados ou local estiver vazio
+        if(itensRemoto.length > 0 || itensLocal.length === 0){
+          SS(`fc_${perfilAtivo}_${row.colecao}`, itensRemoto);
+          carregou = true;
+        } else if(itensLocal.length > 0 && itensRemoto.length === 0){
+          // Local tem dados mas remoto está vazio — envia local para o Supabase
+          sbSalvar(row.colecao, itensLocal);
+        }
       } catch(e){}
     });
-    renderAll();
+
+    if(carregou) renderAll();
     showToast('☁️ Dados sincronizados com a nuvem!');
   } catch(e){ console.warn('sbCarregarTudo error:', e); }
 }
@@ -4604,9 +4616,16 @@ function sbObservar(){
       const row = payload.new;
       if(!row || row.perfil_id !== perfilAtivo) return;
       try {
-        const itens = JSON.parse(row.dados || '[]');
-        SS(`fc_${perfilAtivo}_${row.colecao}`, itens);
-        renderAll();
+        const itensRemoto = JSON.parse(row.dados || '[]');
+        const itensLocal  = LS(`fc_${perfilAtivo}_${row.colecao}`) || [];
+        // Só atualiza se o remoto tiver dados
+        if(itensRemoto.length > 0){
+          SS(`fc_${perfilAtivo}_${row.colecao}`, itensRemoto);
+          renderAll();
+        } else if(itensLocal.length > 0){
+          // Remoto vazio mas local tem dados — envia local para o Supabase
+          sbSalvar(row.colecao, itensLocal);
+        }
       } catch(e){}
     })
     .subscribe();
