@@ -4574,14 +4574,38 @@ async function sbSalvar(col, dados){
   if(!window._sbReady || !_sbUserId) return;
   const agora = new Date().toISOString();
   localStorage.setItem(`fc_ts_${perfilAtivo}_${col}`, agora);
+  const body = {
+    user_id:   _sbUserId,
+    perfil_id: perfilAtivo,
+    colecao:   col,
+    dados:     JSON.stringify(dados),
+    atualizado: agora
+  };
   try {
-    await sbREST('POST', 'fincontrol_dados', {
-      user_id:   _sbUserId,
-      perfil_id: perfilAtivo,
-      colecao:   col,
-      dados:     JSON.stringify(dados),
-      atualizado: agora
+    // Tenta PATCH primeiro (atualizar registro existente)
+    const url = `fincontrol_dados?user_id=eq.${_sbUserId}&perfil_id=eq.${perfilAtivo}&colecao=eq.${col}`;
+    const resp = await fetch(SUPABASE_URL + '/rest/v1/' + url, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ dados: JSON.stringify(dados), atualizado: agora })
     });
+    if(resp.status === 404 || resp.headers.get('content-range') === '*/0'){
+      // Registro não existe, insere
+      await fetch(SUPABASE_URL + '/rest/v1/fincontrol_dados', {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+    }
     console.log('✅ Salvo:', col, dados.length, 'itens');
   } catch(e){ console.warn('sbSalvar error:', col, e.message); }
 }
