@@ -4972,11 +4972,10 @@ async function forcarSync(){
     if(data){
       data.forEach(row => {
         try {
+          // Sempre sobrescreve com dados do Supabase (ignora cache local)
           const itens = JSON.parse(row.dados || '[]');
-          if(itens.length > 0){
-            SS(`fc_${perfilAtivo}_${row.colecao}`, itens);
-            localStorage.setItem(`fc_ts_${perfilAtivo}_${row.colecao}`, row.atualizado);
-          }
+          SS(`fc_${perfilAtivo}_${row.colecao}`, itens);
+          localStorage.setItem(`fc_ts_${perfilAtivo}_${row.colecao}`, row.atualizado);
         } catch(e){}
       });
       renderAll();
@@ -5014,11 +5013,10 @@ async function forcarSync(){
     if(data){
       data.forEach(row => {
         try {
+          // Sempre sobrescreve com dados do Supabase (ignora cache local)
           const itens = JSON.parse(row.dados || '[]');
-          if(itens.length > 0){
-            SS(`fc_${perfilAtivo}_${row.colecao}`, itens);
-            localStorage.setItem(`fc_ts_${perfilAtivo}_${row.colecao}`, row.atualizado);
-          }
+          SS(`fc_${perfilAtivo}_${row.colecao}`, itens);
+          localStorage.setItem(`fc_ts_${perfilAtivo}_${row.colecao}`, row.atualizado);
         } catch(e){}
       });
       renderAll();
