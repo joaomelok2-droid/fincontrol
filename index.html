@@ -250,6 +250,7 @@ if(SUPABASE_URL !== 'COLE_AQUI_SUA_URL' && SUPABASE_KEY !== 'COLE_AQUI_SUA_ANON_
       <i class="ti ti-bell" style="font-size:16px;pointer-events:none"></i>
       <span id="sinoBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:700;display:none;align-items:center;justify-content:center;pointer-events:none"></span>
     </button>
+    <button onclick="forcarSync()" style="background:rgba(255,255,255,.08);border:1px solid rgba(93,217,143,.4);border-radius:8px;color:#5DD98F;height:34px;padding:0 12px;cursor:pointer;font-size:12px;font-weight:600;flex-shrink:0" title="Forçar Sincronização">🔄 Sync</button>
     <button onclick="sairDoConta()" style="background:#C9A84C;border:none;border-radius:8px;color:#1A1814;height:34px;padding:0 16px;cursor:pointer;font-size:13px;font-weight:700;flex-shrink:0" title="Sair">⏻ Sair</button>
     <button class="profile-btn" id="profileBtn" onclick="abrirGerenciarPerfil()" title="Meu Perfil">?</button>
   </div>
@@ -4907,7 +4908,75 @@ function fbMostrarBannerSeDisponivel(){
 }
 
 // ═══════════════════════════════════════════════
+// FORÇAR SYNC
+// ═══════════════════════════════════════════════
+async function forcarSync(){
+  if(!window._sbReady || !_sbUserId){
+    showToast('⚠️ Sem conexão com a nuvem!');
+    return;
+  }
+  showToast('🔄 Sincronizando...');
+  try {
+    const { data, error } = await window._sbClient
+      .from('fincontrol_dados')
+      .select('colecao, dados, atualizado')
+      .eq('user_id', _sbUserId)
+      .eq('perfil_id', perfilAtivo);
+    if(error) throw error;
+    if(data){
+      data.forEach(row => {
+        try {
+          const itens = JSON.parse(row.dados || '[]');
+          if(itens.length > 0){
+            SS(`fc_${perfilAtivo}_${row.colecao}`, itens);
+            localStorage.setItem(`fc_ts_${perfilAtivo}_${row.colecao}`, row.atualizado);
+          }
+        } catch(e){}
+      });
+      renderAll();
+      showToast('✅ Sincronização concluída!');
+    }
+  } catch(e){
+    showToast('❌ Erro ao sincronizar: ' + e.message);
+  }
+}
+
+// ═══════════════════════════════════════════════
 // TOAST
+// ═══════════════════════════════════════════════
+// FORÇAR SYNC
+// ═══════════════════════════════════════════════
+async function forcarSync(){
+  if(!window._sbReady || !_sbUserId){
+    showToast('⚠️ Sem conexão com a nuvem!');
+    return;
+  }
+  showToast('🔄 Sincronizando...');
+  try {
+    const { data, error } = await window._sbClient
+      .from('fincontrol_dados')
+      .select('colecao, dados, atualizado')
+      .eq('user_id', _sbUserId)
+      .eq('perfil_id', perfilAtivo);
+    if(error) throw error;
+    if(data){
+      data.forEach(row => {
+        try {
+          const itens = JSON.parse(row.dados || '[]');
+          if(itens.length > 0){
+            SS(`fc_${perfilAtivo}_${row.colecao}`, itens);
+            localStorage.setItem(`fc_ts_${perfilAtivo}_${row.colecao}`, row.atualizado);
+          }
+        } catch(e){}
+      });
+      renderAll();
+      showToast('✅ Sincronização concluída!');
+    }
+  } catch(e){
+    showToast('❌ Erro ao sincronizar: ' + e.message);
+  }
+}
+
 // ═══════════════════════════════════════════════
 // TOAST
 // ═══════════════════════════════════════════════
