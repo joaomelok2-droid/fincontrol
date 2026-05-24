@@ -1644,8 +1644,10 @@ function setData(key,val){
   if(!perfilAtivo) return;
   // Salva local (cache)
   SS(`fc_${perfilAtivo}_${key}`, val);
+  // Salva timestamp local
+  localStorage.setItem(`fc_ts_${perfilAtivo}_${key}`, new Date().toISOString());
   // Salva no Supabase se conectado
-  if(window._sbReady && _sbSyncAtivo && _sbUserId){
+  if(window._sbReady && _sbUserId){
     sbSalvar(key, val);
   }
 }
