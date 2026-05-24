@@ -4549,15 +4549,17 @@ const COLS_SYNC = ['receitas','despesas','cartoes','compras','diario',
 // ── Salva uma coleção no Supabase ──
 async function sbSalvar(col, dados){
   if(!window._sbReady || !_sbUserId) return;
+  const agora = new Date().toISOString();
+  localStorage.setItem(`fc_ts_${perfilAtivo}_${col}`, agora);
   try {
     const { error } = await window._sbClient
       .from('fincontrol_dados')
       .upsert({
-        user_id:  _sbUserId,
+        user_id:   _sbUserId,
         perfil_id: perfilAtivo,
         colecao:   col,
         dados:     JSON.stringify(dados),
-        atualizado: new Date().toISOString()
+        atualizado: agora
       }, { onConflict: 'user_id,perfil_id,colecao' });
     if(error) console.warn('Supabase save error:', error.message);
   } catch(e){ console.warn('sbSalvar error:', e); }
@@ -4575,24 +4577,36 @@ async function sbCarregarTudo(){
     if(error){ console.warn('sbCarregar error:', error.message); return; }
     if(!data) return;
 
-    let carregou = false;
     data.forEach(row => {
       try {
         const itensRemoto = JSON.parse(row.dados || '[]');
         const itensLocal  = LS(`fc_${perfilAtivo}_${row.colecao}`) || [];
+        const tsLocal     = localStorage.getItem(`fc_ts_${perfilAtivo}_${row.colecao}`);
+        const tsRemoto    = row.atualizado;
 
-        // Só sobrescreve se o remoto tiver dados ou local estiver vazio
-        if(itensRemoto.length > 0 || itensLocal.length === 0){
+        if(itensLocal.length === 0){
           SS(`fc_${perfilAtivo}_${row.colecao}`, itensRemoto);
-          carregou = true;
-        } else if(itensLocal.length > 0 && itensRemoto.length === 0){
-          // Local tem dados mas remoto está vazio — envia local para o Supabase
+        } else if(itensRemoto.length === 0){
           sbSalvar(row.colecao, itensLocal);
+        } else {
+          if(!tsLocal || (tsRemoto && tsRemoto > tsLocal)){
+            SS(`fc_${perfilAtivo}_${row.colecao}`, itensRemoto);
+          } else if(tsLocal > tsRemoto){
+            sbSalvar(row.colecao, itensLocal);
+          }
         }
       } catch(e){}
     });
 
-    if(carregou) renderAll();
+    COLS_SYNC.forEach(col => {
+      const temRemoto = data.some(r => r.colecao === col);
+      if(!temRemoto){
+        const itensLocal = LS(`fc_${perfilAtivo}_${col}`) || [];
+        if(itensLocal.length > 0) sbSalvar(col, itensLocal);
+      }
+    });
+
+    renderAll();
     showToast('☁️ Dados sincronizados com a nuvem!');
   } catch(e){ console.warn('sbCarregarTudo error:', e); }
 }
