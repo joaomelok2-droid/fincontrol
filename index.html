@@ -4574,31 +4574,46 @@ async function sbSalvar(col, dados){
   if(!window._sbReady || !_sbUserId) return;
   const agora = new Date().toISOString();
   localStorage.setItem(`fc_ts_${perfilAtivo}_${col}`, agora);
-  const body = {
-    user_id:   _sbUserId,
-    perfil_id: perfilAtivo,
-    colecao:   col,
-    dados:     JSON.stringify(dados),
-    atualizado: agora
-  };
+  const dadosStr = JSON.stringify(dados);
+  
   try {
-    // Usa UPSERT via POST com Prefer: resolution=merge-duplicates
-    const resp = await fetch(SUPABASE_URL + '/rest/v1/fincontrol_dados', {
-      method: 'POST',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': 'Bearer ' + SUPABASE_KEY,
-        'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates,return=minimal'
-      },
-      body: JSON.stringify(body)
-    });
-    if(!resp.ok){
-      const err = await resp.text();
-      console.warn('sbSalvar error:', col, err);
-    } else {
-      console.log('✅ Salvo:', col, dados.length, 'itens');
+    // Tenta PATCH primeiro (atualiza se existe)
+    const patchResp = await fetch(
+      `${SUPABASE_URL}/rest/v1/fincontrol_dados?user_id=eq.${_sbUserId}&perfil_id=eq.${encodeURIComponent(perfilAtivo)}&colecao=eq.${col}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({ dados: dadosStr, atualizado: agora })
+      }
+    );
+    
+    const patchData = await patchResp.json();
+    
+    // Se PATCH não atualizou nenhuma linha, insere
+    if(!patchData || patchData.length === 0){
+      await fetch(`${SUPABASE_URL}/rest/v1/fincontrol_dados`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({
+          user_id: _sbUserId,
+          perfil_id: perfilAtivo,
+          colecao: col,
+          dados: dadosStr,
+          atualizado: agora
+        })
+      });
     }
+    console.log('✅ Salvo:', col, dados.length, 'itens');
   } catch(e){ console.warn('sbSalvar error:', col, e.message); }
 }
 
