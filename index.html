@@ -294,8 +294,18 @@ if(SUPABASE_URL !== 'COLE_AQUI_SUA_URL' && SUPABASE_KEY !== 'COLE_AQUI_SUA_ANON_
     <div class="card"><div class="card-title" style="margin-bottom:8px">Receitas × Despesas</div><div class="chart-wrap" style="height:200px"><canvas id="chartGeral" role="img" aria-label="Receitas vs Despesas">Gráfico mensal</canvas></div></div>
     <div class="card"><div class="card-title" style="margin-bottom:8px">Distribuição de Gastos</div><div class="chart-wrap" style="height:200px"><canvas id="chartPizza" role="img" aria-label="Pizza categorias">Categorias</canvas></div></div>
   </div>
+  <!-- Sobra Mensal -->
+  <div class="card" style="margin-bottom:10px">
+    <div class="card-title" style="margin-bottom:10px">📈 Sobra Mensal — Últimos 6 meses</div>
+    <div class="chart-wrap" style="height:180px"><canvas id="chartSobra" role="img" aria-label="Sobra mensal">Sobra mensal</canvas></div>
+  </div>
+
+  <!-- Cartões por Usuário -->
   <div class="card" style="margin-bottom:10px" id="ov-cartoes-section">
-    <div class="card-title" style="margin-bottom:10px">Cartões — Consolidado</div>
+    <div class="card-title" style="margin-bottom:10px">💳 Cartões — Resumo por Usuário</div>
+    <div id="ov-cartoes-usuarios" style="margin-bottom:12px"></div>
+    <div class="chart-wrap" style="height:200px;margin-bottom:12px"><canvas id="chartCartaoUsuario" role="img" aria-label="Gastos por usuário">Gastos por usuário</canvas></div>
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:8px">Por Cartão</div>
     <div id="ov-cartoes-content"><div class="empty-state"><i class="ti ti-credit-card-off"></i><p>Nenhum cartão cadastrado ainda.</p></div></div>
   </div>
   <div class="critical-box">
@@ -2822,6 +2832,103 @@ function renderGeral(){
   const pLabels=Object.keys(cats).filter(k=>cats[k]>0);
   const pData=pLabels.map(k=>cats[k]);
   if(pData.length) chartPizza=new Chart(ctx2,{type:'doughnut',data:{labels:pLabels,datasets:[{data:pData,backgroundColor:['#2D7A4F','#C9A84C','#A32D2D','#185FA5','#9A8E7E'],borderWidth:0,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:10.5},boxWidth:9,padding:7}}}}});
+
+  // ── SOBRA MENSAL ──
+  const sobraLabels=[], sobraData=[], sobraCores=[];
+  for(let i=5;i>=0;i--){
+    const d=new Date(ano,m-1-i,1);
+    const mk=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const rMes=receitas().filter(x=>x.mes===mk).reduce((s,x)=>s+Number(x.liq||0),0);
+    const dMes=despesas().filter(x=>x.mes===mk).reduce((s,x)=>s+Number(x.valor||0),0);
+    const cMes=compras().filter(x=>x.mes===mk).reduce((s,x)=>s+Number(x.parcMes||x.valor||0),0);
+    const sobra=rMes-dMes-cMes;
+    sobraLabels.push(d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}));
+    sobraData.push(sobra);
+    sobraCores.push(sobra>=0?'#2D7A4F':'#A32D2D');
+  }
+  // Mês atual
+  const sobraAtual=totRec-totSaida;
+  sobraLabels.push(new Date(ano,m-1,1).toLocaleDateString('pt-BR',{month:'short',year:'2-digit'})+' ★');
+  sobraData.push(sobraAtual);
+  sobraCores.push(sobraAtual>=0?'#2D7A4F':'#A32D2D');
+
+  let chartSobra=window._chartSobra;
+  if(chartSobra) chartSobra.destroy();
+  const ctxSobra=document.getElementById('chartSobra');
+  window._chartSobra=new Chart(ctxSobra,{
+    type:'bar',
+    data:{labels:sobraLabels,datasets:[{label:'Sobra Mensal',data:sobraData,backgroundColor:sobraCores,borderRadius:6}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:v=>'Sobra: '+fmt(v.raw)}}},
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:10.5}}},
+        y:{grid:{color:'rgba(180,160,120,.15)'},ticks:{callback:v=>'R$'+Math.round(v/1000)+'k',font:{size:10.5}},
+          afterDataLimits(axis){const max=Math.abs(axis.max||1000);axis.min=Math.min(axis.min,-max*0.1);}}
+      }
+    }
+  });
+
+  // ── CARTÕES POR USUÁRIO ──
+  const donos={};
+  compArr.forEach(c=>{
+    const d=c.dono||'Eu';
+    if(!donos[d]) donos[d]={total:0,pago:0,pendente:0};
+    const v=Number(c.parcMes||c.valor||0);
+    donos[d].total+=v;
+    if(c.status==='Pago') donos[d].pago+=v;
+    else donos[d].pendente+=v;
+  });
+
+  // Summary bar por usuário
+  const donosEl=document.getElementById('ov-cartoes-usuarios');
+  const donosArr=Object.entries(donos);
+  if(donosArr.length){
+    const coresDono=['#185FA5','#2D7A4F','#A32D2D','#855B0B','#7B5EA7','#9A3E6E'];
+    donosEl.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      ${donosArr.map(([nome,v],i)=>`
+        <div style="flex:1;min-width:140px;background:var(--cream2);border-radius:10px;padding:10px 14px;border-left:4px solid ${coresDono[i%coresDono.length]}">
+          <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px">${nome}</div>
+          <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--text2);margin-bottom:3px">
+            <span>Total</span><b style="color:${coresDono[i%coresDono.length]}">${fmt(v.total)}</b>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:3px">
+            <span>✅ Pago</span><span style="color:var(--green)">${fmt(v.pago)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3)">
+            <span>⏳ Pendente</span><span style="color:var(--red)">${fmt(v.pendente)}</span>
+          </div>
+        </div>`).join('')}
+    </div>`;
+
+    // Gráfico por usuário
+    let chartCU=window._chartCartaoUsuario;
+    if(chartCU) chartCU.destroy();
+    const ctxCU=document.getElementById('chartCartaoUsuario');
+    window._chartCartaoUsuario=new Chart(ctxCU,{
+      type:'bar',
+      data:{
+        labels:donosArr.map(([n])=>n),
+        datasets:[
+          {label:'Pago',data:donosArr.map(([,v])=>v.pago),backgroundColor:'#2D7A4F',borderRadius:4},
+          {label:'Pendente',data:donosArr.map(([,v])=>v.pendente),backgroundColor:'#C9A84C',borderRadius:4},
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{font:{size:10.5},boxWidth:10}}},
+        scales:{
+          x:{stacked:true,grid:{display:false},ticks:{font:{size:11}}},
+          y:{stacked:true,ticks:{callback:v=>'R$'+Math.round(v/1000)+'k',font:{size:10.5}},grid:{color:'rgba(180,160,120,.15)'}}
+        }
+      }
+    });
+  } else {
+    donosEl.innerHTML='';
+    const ctxCU=document.getElementById('chartCartaoUsuario');
+    let chartCU=window._chartCartaoUsuario;
+    if(chartCU){ chartCU.destroy(); window._chartCartaoUsuario=null; }
+  }
 }
 
 // ═══════════════════════════════════════════════
