@@ -4582,31 +4582,23 @@ async function sbSalvar(col, dados){
     atualizado: agora
   };
   try {
-    // Tenta PATCH primeiro (atualizar registro existente)
-    const url = `fincontrol_dados?user_id=eq.${_sbUserId}&perfil_id=eq.${perfilAtivo}&colecao=eq.${col}`;
-    const resp = await fetch(SUPABASE_URL + '/rest/v1/' + url, {
-      method: 'PATCH',
+    // Usa UPSERT via POST com Prefer: resolution=merge-duplicates
+    const resp = await fetch(SUPABASE_URL + '/rest/v1/fincontrol_dados', {
+      method: 'POST',
       headers: {
         'apikey': SUPABASE_KEY,
         'Authorization': 'Bearer ' + SUPABASE_KEY,
         'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
+        'Prefer': 'resolution=merge-duplicates,return=minimal'
       },
-      body: JSON.stringify({ dados: JSON.stringify(dados), atualizado: agora })
+      body: JSON.stringify(body)
     });
-    if(resp.status === 404 || resp.headers.get('content-range') === '*/0'){
-      // Registro não existe, insere
-      await fetch(SUPABASE_URL + '/rest/v1/fincontrol_dados', {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': 'Bearer ' + SUPABASE_KEY,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-      });
+    if(!resp.ok){
+      const err = await resp.text();
+      console.warn('sbSalvar error:', col, err);
+    } else {
+      console.log('✅ Salvo:', col, dados.length, 'itens');
     }
-    console.log('✅ Salvo:', col, dados.length, 'itens');
   } catch(e){ console.warn('sbSalvar error:', col, e.message); }
 }
 
