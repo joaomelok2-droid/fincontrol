@@ -4958,29 +4958,39 @@ async function forcarSync(){
   }
   showToast('🔄 Sincronizando...');
   try {
-    // Primeiro envia todos os dados locais para o Supabase
-    for(const col of COLS_SYNC){
-      const itensLocal = LS(`fc_${perfilAtivo}_${col}`) || [];
-      if(itensLocal.length > 0){
-        await sbSalvar(col, itensLocal);
-      }
-    }
-    // Depois carrega do Supabase
+    // 1. Carrega dados do Supabase
     const data = await sbREST('GET',
       `fincontrol_dados?user_id=eq.${_sbUserId}&perfil_id=eq.${perfilAtivo}&select=colecao,dados,atualizado`
     );
-    if(data){
+
+    if(data && data.length > 0){
       data.forEach(row => {
         try {
-          // Sempre sobrescreve com dados do Supabase (ignora cache local)
-          const itens = JSON.parse(row.dados || '[]');
-          SS(`fc_${perfilAtivo}_${row.colecao}`, itens);
-          localStorage.setItem(`fc_ts_${perfilAtivo}_${row.colecao}`, row.atualizado);
+          const itensRemoto = JSON.parse(row.dados || '[]');
+          const tsLocal  = localStorage.getItem(`fc_ts_${perfilAtivo}_${row.colecao}`) || '0';
+          const tsRemoto = row.atualizado || '0';
+
+          if(tsRemoto >= tsLocal){
+            // Remoto é mais recente — sobrescreve local
+            SS(`fc_${perfilAtivo}_${row.colecao}`, itensRemoto);
+            localStorage.setItem(`fc_ts_${perfilAtivo}_${row.colecao}`, tsRemoto);
+          } else {
+            // Local é mais recente — envia para o Supabase
+            const itensLocal = LS(`fc_${perfilAtivo}_${row.colecao}`) || [];
+            if(itensLocal.length > 0) sbSalvar(row.colecao, itensLocal);
+          }
         } catch(e){}
       });
-      renderAll();
-      showToast('✅ Sincronização concluída!');
+    } else {
+      // Nenhum dado no Supabase — envia todos os dados locais
+      for(const col of COLS_SYNC){
+        const itensLocal = LS(`fc_${perfilAtivo}_${col}`) || [];
+        if(itensLocal.length > 0) await sbSalvar(col, itensLocal);
+      }
     }
+
+    renderAll();
+    showToast('✅ Sincronização concluída!');
   } catch(e){
     showToast('❌ Erro: ' + e.message);
     console.warn('forcarSync error:', e);
@@ -4999,29 +5009,39 @@ async function forcarSync(){
   }
   showToast('🔄 Sincronizando...');
   try {
-    // Primeiro envia todos os dados locais para o Supabase
-    for(const col of COLS_SYNC){
-      const itensLocal = LS(`fc_${perfilAtivo}_${col}`) || [];
-      if(itensLocal.length > 0){
-        await sbSalvar(col, itensLocal);
-      }
-    }
-    // Depois carrega do Supabase
+    // 1. Carrega dados do Supabase
     const data = await sbREST('GET',
       `fincontrol_dados?user_id=eq.${_sbUserId}&perfil_id=eq.${perfilAtivo}&select=colecao,dados,atualizado`
     );
-    if(data){
+
+    if(data && data.length > 0){
       data.forEach(row => {
         try {
-          // Sempre sobrescreve com dados do Supabase (ignora cache local)
-          const itens = JSON.parse(row.dados || '[]');
-          SS(`fc_${perfilAtivo}_${row.colecao}`, itens);
-          localStorage.setItem(`fc_ts_${perfilAtivo}_${row.colecao}`, row.atualizado);
+          const itensRemoto = JSON.parse(row.dados || '[]');
+          const tsLocal  = localStorage.getItem(`fc_ts_${perfilAtivo}_${row.colecao}`) || '0';
+          const tsRemoto = row.atualizado || '0';
+
+          if(tsRemoto >= tsLocal){
+            // Remoto é mais recente — sobrescreve local
+            SS(`fc_${perfilAtivo}_${row.colecao}`, itensRemoto);
+            localStorage.setItem(`fc_ts_${perfilAtivo}_${row.colecao}`, tsRemoto);
+          } else {
+            // Local é mais recente — envia para o Supabase
+            const itensLocal = LS(`fc_${perfilAtivo}_${row.colecao}`) || [];
+            if(itensLocal.length > 0) sbSalvar(row.colecao, itensLocal);
+          }
         } catch(e){}
       });
-      renderAll();
-      showToast('✅ Sincronização concluída!');
+    } else {
+      // Nenhum dado no Supabase — envia todos os dados locais
+      for(const col of COLS_SYNC){
+        const itensLocal = LS(`fc_${perfilAtivo}_${col}`) || [];
+        if(itensLocal.length > 0) await sbSalvar(col, itensLocal);
+      }
     }
+
+    renderAll();
+    showToast('✅ Sincronização concluída!');
   } catch(e){
     showToast('❌ Erro: ' + e.message);
     console.warn('forcarSync error:', e);
