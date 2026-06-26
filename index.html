@@ -4659,14 +4659,24 @@ let _sbUserId        = null;
 const COLS_SYNC = ['receitas','despesas','cartoes','compras','diario',
                    'emprestimos','sonhos','aportes','carteiraInv','eventos','pagosMes'];
 
+// Pega o token de autenticação real do usuário logado (não a anon key genérica)
+async function sbGetToken(){
+  if(!window._sbReady) return SUPABASE_KEY;
+  try {
+    const { data } = await window._sbClient.auth.getSession();
+    return data?.session?.access_token || SUPABASE_KEY;
+  } catch(e){ return SUPABASE_KEY; }
+}
+
 // Função auxiliar para fazer requisições REST diretamente
 async function sbREST(method, path, body){
+  const token = await sbGetToken();
   const url = SUPABASE_URL + '/rest/v1/' + path;
   const resp = await fetch(url, {
     method,
     headers: {
       'apikey': SUPABASE_KEY,
-      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Authorization': 'Bearer ' + token,
       'Content-Type': 'application/json',
       'Prefer': method === 'POST' ? 'resolution=merge-duplicates' : ''
     },
@@ -4685,6 +4695,7 @@ async function sbSalvar(col, dados){
   const agora = new Date().toISOString();
   localStorage.setItem(`fc_ts_${perfilAtivo}_${col}`, agora);
   const dadosStr = JSON.stringify(dados);
+  const token = await sbGetToken();
   
   try {
     // Tenta PATCH primeiro (atualiza se existe)
@@ -4694,7 +4705,7 @@ async function sbSalvar(col, dados){
         method: 'PATCH',
         headers: {
           'apikey': SUPABASE_KEY,
-          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Authorization': 'Bearer ' + token,
           'Content-Type': 'application/json',
           'Prefer': 'return=representation'
         },
@@ -4710,7 +4721,7 @@ async function sbSalvar(col, dados){
         method: 'POST',
         headers: {
           'apikey': SUPABASE_KEY,
-          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Authorization': 'Bearer ' + token,
           'Content-Type': 'application/json',
           'Prefer': 'return=minimal'
         },
