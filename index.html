@@ -267,7 +267,8 @@ if(SUPABASE_URL !== 'COLE_AQUI_SUA_URL' && SUPABASE_KEY !== 'COLE_AQUI_SUA_ANON_
   <div class="tab" onclick="switchTab(7)">🌟 Investimentos</div>
   <div class="tab" onclick="switchTab(8)" id="tabCalendario">📆 Calendário</div>
   <div class="tab" onclick="switchTab(9)">📄 Relatório</div>
-  <div class="tab" id="tabAdmin" style="display:none" onclick="switchTab(10)">⚙️ Admin</div>
+  <div class="tab" onclick="switchTab(10)" id="tabSuspensos">🟡 Suspensos</div>
+  <div class="tab" id="tabAdmin" style="display:none" onclick="switchTab(11)">⚙️ Admin</div>
 </div>
 <div class="content-wrap">
 <div class="content">
@@ -596,8 +597,32 @@ if(SUPABASE_URL !== 'COLE_AQUI_SUA_URL' && SUPABASE_KEY !== 'COLE_AQUI_SUA_ANON_
   <div class="card" id="relatorioContent"></div>
 </div>
 
-<!-- ABA 10: ADMIN -->
+<!-- ABA 10: DÉBITOS SUSPENSOS -->
 <div class="tab-pane" id="pane10">
+  <div class="sec-header">
+    <div class="sec-title">🟡 Débitos Suspensos</div>
+  </div>
+  <div class="grid-3" style="margin-bottom:12px">
+    <div class="card"><div class="card-title">Total em Análise</div><div class="card-value" style="color:var(--yellow)" id="susp-total">R$ 0</div></div>
+    <div class="card"><div class="card-title">Itens Suspensos</div><div class="card-value gold" id="susp-count">0</div></div>
+    <div class="card"><div class="card-title">Mais Antigo</div><div class="card-value" id="susp-antigo" style="font-size:15px">—</div></div>
+  </div>
+  <div style="background:var(--yellow-bg);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;color:var(--yellow);border:1px solid rgba(133,91,11,.2)">
+    <i class="ti ti-info-circle"></i> Despesas marcadas como <b>Suspenso</b> ficam aqui automaticamente — elas não entram nos cálculos de Total de Saídas até serem reativadas para análise de pagamento futuro.
+  </div>
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Descrição</th><th>Cat.</th><th>Sub.</th><th>Venc.</th><th>Valor</th><th>Mês Ref.</th><th>Ações</th></tr></thead>
+        <tbody id="tbSuspensos"></tbody>
+        <tfoot id="tfSuspensos"></tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ABA 11: ADMIN -->
+<div class="tab-pane" id="pane11">
   <div class="sec-header">
     <div class="sec-title">Painel do Administrador</div>
     <div class="sec-actions">
@@ -1775,7 +1800,8 @@ function renderTab(i){
   if(i===7) renderInvestimentos();
   if(i===8) renderCalendario();
   if(i===9) renderRelatorio();
-  if(i===10) renderAdmin();
+  if(i===10) renderSuspensos();
+  if(i===11) renderAdmin();
 }
 function renderAll(){ renderTab(activeTab); }
 
@@ -2068,12 +2094,12 @@ function salvarDespesa(){
   else arr.push(obj);
   setData('despesas',arr);
   closeModal('modalDespesa');
-  renderDespesas(); if(activeTab===0) renderGeral();
+  renderDespesas(); if(activeTab===0) renderGeral(); if(activeTab===10) renderSuspensos();
 }
 function excluirDespesa(id){
   confirmar('Excluir esta despesa?',()=>{
     setData('despesas',despesas().filter(x=>x.id!==id));
-    renderDespesas(); if(activeTab===0) renderGeral();
+    renderDespesas(); if(activeTab===0) renderGeral(); if(activeTab===10) renderSuspensos();
   });
 }
 function renderDespesas(){
@@ -2082,9 +2108,10 @@ function renderDespesas(){
   const filtStatus=document.getElementById('filtDespStatus').value;
   const filtSub=document.getElementById('filtDespSub').value;
   let arr=despesas().filter(x=>x.mes===mes);
-  const totFixas=arr.filter(x=>x.cat==='Fixa').reduce((s,x)=>s+Number(x.valor),0);
-  const totVar=arr.filter(x=>x.cat==='Variável').reduce((s,x)=>s+Number(x.valor),0);
-  const totImp=arr.filter(x=>x.cat==='Imposto').reduce((s,x)=>s+Number(x.valor),0);
+  const arrAtivo=arr.filter(x=>x.status!=='Suspenso');
+  const totFixas=arrAtivo.filter(x=>x.cat==='Fixa').reduce((s,x)=>s+Number(x.valor),0);
+  const totVar=arrAtivo.filter(x=>x.cat==='Variável').reduce((s,x)=>s+Number(x.valor),0);
+  const totImp=arrAtivo.filter(x=>x.cat==='Imposto').reduce((s,x)=>s+Number(x.valor),0);
   document.getElementById('desp-fixas').textContent=fmt(totFixas);
   document.getElementById('desp-var').textContent=fmt(totVar);
   document.getElementById('desp-imp').textContent=fmt(totImp);
@@ -2113,6 +2140,56 @@ function renderDespesas(){
 function badgeStatus(s){
   const map={'Pago':'badge-green','Pendente':'badge-red','Suspenso':'badge-yellow','Em Análise':'badge-blue'};
   return `<span class="badge ${map[s]||'badge-blue'}"><span class="dot"></span>${s}</span>`;
+}
+
+// ═══════════════════════════════════════════════
+// DÉBITOS SUSPENSOS (auto-preenchido)
+// ═══════════════════════════════════════════════
+function reativarDespesa(id){
+  confirmar('Reativar esta despesa? Ela voltará para "Pendente" e passará a contar no Total de Saídas.',()=>{
+    const arr=despesas();
+    const i=arr.findIndex(x=>x.id===id);
+    if(i>=0){
+      arr[i]={...arr[i], status:'Pendente'};
+      setData('despesas',arr);
+      renderSuspensos();
+      if(activeTab===0) renderGeral();
+      if(activeTab===2) renderDespesas();
+      showToast('✅ Despesa reativada e movida para Pendente!');
+    }
+  });
+}
+function renderSuspensos(){
+  const todasArr=despesas();
+  const arr=todasArr.filter(x=>x.status==='Suspenso').sort((a,b)=>(a.venc||'').localeCompare(b.venc||''));
+  const tot=arr.reduce((s,x)=>s+Number(x.valor||0),0);
+  document.getElementById('susp-total').textContent=fmt(tot);
+  document.getElementById('susp-count').textContent=arr.length;
+  document.getElementById('susp-antigo').textContent = arr.length && arr[0].venc
+    ? new Date(arr[0].venc+'T12:00').toLocaleDateString('pt-BR') : '—';
+
+  const tb=document.getElementById('tbSuspensos');
+  const tf=document.getElementById('tfSuspensos');
+  if(!arr.length){
+    tb.innerHTML=`<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">Nenhum débito suspenso no momento.</td></tr>`;
+    tf.innerHTML=''; return;
+  }
+  tb.innerHTML=arr.map(d=>{
+    const [ano,mes]=(d.mes||'').split('-');
+    const mesLabel = ano&&mes ? new Date(ano,mes-1,1).toLocaleDateString('pt-BR',{month:'short',year:'numeric'}) : '—';
+    return `<tr>
+      <td><b>${d.desc}</b></td><td>${d.cat}</td><td>${d.sub}</td>
+      <td>${d.venc?new Date(d.venc+'T12:00').toLocaleDateString('pt-BR'):'—'}</td>
+      <td style="font-weight:600;color:var(--yellow)">${fmt(d.valor)}</td>
+      <td style="font-size:11.5px;color:var(--text3)">${mesLabel}</td>
+      <td><div style="display:flex;gap:4px">
+        <button class="btn btn-sm" style="font-size:11px;color:var(--green);border-color:rgba(45,122,79,.3)" onclick="reativarDespesa('${d.id}')" title="Reativar para Pendente"><i class="ti ti-rotate"></i> Reativar</button>
+        <button class="btn btn-icon btn-sm" onclick="openDespesaModal('${d.id}')" title="Editar"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-icon btn-sm btn-danger" onclick="excluirDespesa('${d.id}')" title="Excluir"><i class="ti ti-trash"></i></button>
+      </div></td>
+    </tr>`;
+  }).join('');
+  tf.innerHTML=`<tr><td colspan="4"><b>TOTAL SUSPENSO</b></td><td style="color:var(--yellow)"><b>${fmt(tot)}</b></td><td colspan="2"></td></tr>`;
 }
 
 // ═══════════════════════════════════════════════
@@ -2994,7 +3071,8 @@ let chartGeral=null, chartPizza=null;
 function renderGeral(){
   const mes=getMes();
   const recArr=receitas().filter(x=>x.mes===mes);
-  const despArr=despesas().filter(x=>x.mes===mes);
+  const despArrAll=despesas().filter(x=>x.mes===mes);
+  const despArr=despArrAll.filter(x=>x.status!=='Suspenso'); // exclui suspensos dos cálculos
   const cartArr=cartoes();
   const compArr=compras().filter(x=>x.mes===mes);
   const totRec=recArr.reduce((s,x)=>s+Number(x.liq||0),0);
