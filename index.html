@@ -5479,9 +5479,9 @@ function renderPirCats(dados, liq, mes){
             <tbody>${rows}</tbody>
             <tfoot><tr id="pir-foot-${ci}">
               <td><b>Saldo</b></td>
-              <td style="text-align:right"><b>${fmt(plan)}</b></td>
-              <td style="text-align:right;color:var(--green);font-weight:600">${fmt(real)}</td>
-              <td style="text-align:right"><b style="color:${saldo>=0?'var(--green)':'var(--red)'}">${saldo>=0?'+':'-'}${fmt(Math.abs(saldo)).replace('R$ ','')}</b></td>
+              <td style="text-align:right"><b id="pir-foot-plan-${ci}">${fmt(plan)}</b></td>
+              <td style="text-align:right;color:var(--green);font-weight:600" id="pir-foot-real-${ci}">${fmt(real)}</td>
+              <td style="text-align:right"><b id="pir-foot-diff-${ci}" style="color:${saldo>=0?'var(--green)':'var(--red)'}">${saldo>=0?'+':'-'}${fmt(Math.abs(saldo)).replace('R$ ','')}</b></td>
               <td></td>
             </tfoot>
           </table>
@@ -5564,27 +5564,29 @@ function pirAtualizarItem(ci, ii, campo, valor){
   const dados = pirGetDados(mes);
   dados[ci].itens[ii][campo] = parseFloat(valor)||0;
   pirSalvarDados(mes, dados);
-  // Não re-renderiza a tela inteira — só atualiza o dashboard se estiver visível
-  if(_pirView === 'dashboard') renderPiramide();
-  // Na view pirâmide, só atualiza o resumo do rodapé sem re-renderizar tudo
-  else if(_pirView === 'piramide') pirAtualizarRodape(ci, dados);
-}
-
-function pirAtualizarRodape(ci, dados){
-  const mes = getMes();
+  // Atualiza só o saldo do rodapé sem re-renderizar nada
   const liq = receitas().filter(x=>x.mes===mes).reduce((s,x)=>s+Number(x.liq||0),0);
-  const catData = dados[ci];
   const cat = PIR_CATS[ci];
   const teto = liq * cat.pct / 100;
-  const transp = (catData.transposicoes||[]).reduce((s,t)=>s+t.valor,0);
-  const real = catData.itens.reduce((s,it)=>s+(it.real||0),0);
-  const plan = catData.itens.reduce((s,it)=>s+(it.plan||0),0);
+  const transp = (dados[ci].transposicoes||[]).reduce((s,t)=>s+t.valor,0);
+  const real = dados[ci].itens.reduce((s,it)=>s+(it.real||0),0);
+  const plan = dados[ci].itens.reduce((s,it)=>s+(it.plan||0),0);
   const saldo = teto + transp - real;
-  // Atualiza só o elemento de saldo daquela categoria sem re-renderizar
   const saldoEl = document.getElementById(`pir-saldo-${ci}`);
-  if(saldoEl) saldoEl.innerHTML = `${saldo>=0?'↓ sobra '+fmt(saldo):'↑ estouro '+fmt(Math.abs(saldo))}`;
-  const saldoEl2 = document.getElementById(`pir-foot-${ci}`);
-  if(saldoEl2) saldoEl2.innerHTML = `<td><b>Saldo</b></td><td style="text-align:right"><b>${fmt(plan)}</b></td><td style="text-align:right;color:var(--green);font-weight:600">${fmt(real)}</td><td style="text-align:right"><b style="color:${saldo>=0?'var(--green)':'var(--red)'}">${saldo>=0?'+':'-'}${fmt(Math.abs(saldo)).replace('R$ ','')}</b></td><td></td>`;
+  if(saldoEl){
+    saldoEl.textContent = saldo>=0 ? '↓ sobra '+fmt(saldo) : '↑ estouro '+fmt(Math.abs(saldo));
+    saldoEl.style.color = saldo>=0 ? 'var(--green)' : 'var(--red)';
+  }
+  const footEl = document.getElementById(`pir-foot-real-${ci}`);
+  if(footEl) footEl.textContent = fmt(real);
+  const footPlan = document.getElementById(`pir-foot-plan-${ci}`);
+  if(footPlan) footPlan.textContent = fmt(plan);
+  const footDiff = document.getElementById(`pir-foot-diff-${ci}`);
+  if(footDiff){
+    const d = saldo;
+    footDiff.textContent = (d>=0?'+':'-') + fmt(Math.abs(d)).replace('R$ ','');
+    footDiff.style.color = d>=0 ? 'var(--green)' : 'var(--red)';
+  }
 }
 function pirAdicionarItem(ci){
   const mes = getMes();
