@@ -270,7 +270,6 @@ if(SUPABASE_URL !== 'COLE_AQUI_SUA_URL' && SUPABASE_KEY !== 'COLE_AQUI_SUA_ANON_
   <div class="tab" onclick="switchTab(10)" id="tabSuspensos">🟡 Suspensos</div>
   <div class="tab" id="tabAdmin" style="display:none" onclick="switchTab(11)">⚙️ Admin</div>
   <div class="tab" id="tabAnalise" style="display:none" onclick="switchTab(12)">📊 Análise</div>
-  <div class="tab" id="tabPiramide" style="display:none" onclick="switchTab(13)">🔺 Pirâmide</div>
 </div>
 <div class="content-wrap">
 <div class="content">
@@ -705,68 +704,6 @@ if(SUPABASE_URL !== 'COLE_AQUI_SUA_URL' && SUPABASE_KEY !== 'COLE_AQUI_SUA_ANON_
   <div class="card">
     <div class="card-title" style="margin-bottom:10px">🏆 Top 10 Maiores Gastos do Mês</div>
     <div id="analiseTop10"></div>
-  </div>
-</div>
-
-<!-- ABA 13: PIRÂMIDE FINANCEIRA (admin only) -->
-<div class="tab-pane" id="pane13">
-  <div class="sec-header">
-    <div class="sec-title">🔺 Pirâmide Financeira</div>
-    <div class="sec-actions">
-      <button class="btn btn-sm" onclick="piramideVerAbas('dashboard')" id="pir-btn-dash" style="background:var(--dark2);color:var(--gold);border-color:var(--dark2)">📊 Dashboard</button>
-      <button class="btn btn-sm" onclick="piramideVerAbas('piramide')" id="pir-btn-pir">🔺 A Pirâmide</button>
-      <button class="btn btn-sm" onclick="piramideVerAbas('historico')" id="pir-btn-hist">📅 Histórico</button>
-    </div>
-  </div>
-
-  <!-- PAINEL: DASHBOARD -->
-  <div id="pir-panel-dashboard">
-    <!-- KPIs -->
-    <div class="grid-4" style="margin-bottom:12px" id="pir-kpis"></div>
-
-    <!-- Barras da pirâmide -->
-    <div class="card" style="margin-bottom:12px" id="pir-barras-card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-        <div class="card-title" style="margin:0">Alocação da Receita — Mês Atual</div>
-        <span id="pir-mes-label" style="font-size:12px;color:var(--text3)"></span>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 260px;gap:16px;align-items:center">
-        <div id="pir-barras"></div>
-        <div id="pir-svg-wrap"></div>
-      </div>
-    </div>
-
-    <!-- Créditos e déficits -->
-    <div class="grid-2" style="margin-bottom:12px">
-      <div class="card" style="border-left:4px solid var(--green)">
-        <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--green);margin-bottom:10px;font-weight:600">✦ Créditos Não Usados</div>
-        <div id="pir-creditos"></div>
-      </div>
-      <div class="card" style="border-left:4px solid var(--red)">
-        <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--red);margin-bottom:10px;font-weight:600">⚠ Déficits</div>
-        <div id="pir-deficits"></div>
-      </div>
-    </div>
-
-    <!-- Cards das categorias -->
-    <div id="pir-cats"></div>
-  </div>
-
-  <!-- PAINEL: A PIRÂMIDE (categorias com itens) -->
-  <div id="pir-panel-piramide" style="display:none">
-    <div id="pir-cats-detalhe"></div>
-  </div>
-
-  <!-- PAINEL: HISTÓRICO -->
-  <div id="pir-panel-historico" style="display:none">
-    <div class="card" style="margin-bottom:12px">
-      <div class="card-title" style="margin-bottom:10px">📈 Evolução por Camada — Últimos 12 meses</div>
-      <div class="chart-wrap" style="height:240px"><canvas id="chartPirHistorico"></canvas></div>
-    </div>
-    <div class="card">
-      <div class="card-title" style="margin-bottom:10px">📋 Histórico de Alocação Mensal</div>
-      <div class="table-wrap" id="pir-historico-tabela"></div>
-    </div>
   </div>
 </div>
 
@@ -1608,47 +1545,6 @@ if(SUPABASE_URL !== 'COLE_AQUI_SUA_URL' && SUPABASE_KEY !== 'COLE_AQUI_SUA_ANON_
 </div>
 </div>
 
-<!-- Modal Item Pirâmide -->
-<div class="modal-overlay" id="modalPirItem">
-<div class="modal" style="max-width:460px">
-  <div class="modal-title" id="pirItemTitulo">Editar Item</div>
-  <input type="hidden" id="pirItemCatIdx">
-  <input type="hidden" id="pirItemIdx">
-  <div class="form-row"><label>Descrição <span style="color:var(--red)">*</span></label>
-    <input type="text" id="pirItemDesc" placeholder="Ex: Aluguel, Supermercado...">
-  </div>
-  <div class="form-row"><label>Subcategoria</label>
-    <input type="text" id="pirItemSub" placeholder="Ex: Moradia, Alimentação...">
-  </div>
-  <div class="form-row"><label>Valor Planejado (R$)</label>
-    <input type="number" id="pirItemPlan" placeholder="0,00" step="0.01" min="0">
-  </div>
-  <div class="form-row"><label>Valor Real (R$) <span style="font-size:10px;color:var(--text3)">(auto-preenchido, editável)</span></label>
-    <input type="number" id="pirItemReal" placeholder="0,00" step="0.01" min="0" style="color:var(--green-t);font-weight:600">
-  </div>
-  <div class="form-row"><label>Observação</label>
-    <input type="text" id="pirItemObs" placeholder="Ex: Recorrente, sazonale...">
-  </div>
-  <div class="modal-actions">
-    <button class="btn" onclick="closeModal('modalPirItem')">Cancelar</button>
-    <button class="btn btn-gold" onclick="salvarPirItem()"><i class="ti ti-check"></i> Salvar</button>
-  </div>
-</div>
-</div>
-
-<!-- Modal Transposição Pirâmide -->
-<div class="modal-overlay" id="modalPirTransposicao">
-<div class="modal" style="max-width:480px">
-  <div class="modal-title">✦ Transposição de Créditos</div>
-  <div style="font-size:13px;color:var(--text2);margin-bottom:14px" id="pirTranspDesc"></div>
-  <div id="pirTranspBody"></div>
-  <div class="modal-actions">
-    <button class="btn" onclick="closeModal('modalPirTransposicao')">Pular</button>
-    <button class="btn btn-gold" onclick="confirmarPirTransposicao()"><i class="ti ti-check"></i> Aplicar</button>
-  </div>
-</div>
-</div>
-
 <!-- Modal Confirmação -->
 
 <div class="modal-overlay" id="modalConfirm">
@@ -1958,7 +1854,6 @@ function renderTab(i){
   if(i===10) renderSuspensos();
   if(i===11) renderAdmin();
   if(i===12) renderAnalise();
-  if(i===13) renderPiramide();
 }
 function renderAll(){ renderTab(activeTab); }
 
@@ -4947,8 +4842,6 @@ function admVerificarAdmin(email){
     tabAdmin.style.display = '';
     const tabAnalise = document.getElementById('tabAnalise');
     if(tabAnalise) tabAnalise.style.display = '';
-    const tabPiramide = document.getElementById('tabPiramide');
-    if(tabPiramide) tabPiramide.style.display = '';
   }
 }
 
