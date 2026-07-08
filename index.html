@@ -730,7 +730,10 @@ if(SUPABASE_URL !== 'COLE_AQUI_SUA_URL' && SUPABASE_KEY !== 'COLE_AQUI_SUA_ANON_
         <div class="card-title" style="margin:0">Alocação da Receita — Mês Atual</div>
         <span id="pir-mes-label" style="font-size:12px;color:var(--text3)"></span>
       </div>
-      <div id="pir-barras"></div>
+      <div style="display:grid;grid-template-columns:1fr 260px;gap:16px;align-items:center">
+        <div id="pir-barras"></div>
+        <div id="pir-svg-wrap"></div>
+      </div>
     </div>
 
     <!-- Créditos e déficits -->
@@ -5319,6 +5322,43 @@ function renderPirDashboard(dados, liq, mes, mesLabel){
       </div>`;
   });
   document.getElementById('pir-barras').innerHTML = barrasHTML;
+
+  // ── PIRÂMIDE SVG DINÂMICA ──
+  const pirCores = ['#b8880e','#7c5bbf','#178a68','#2e7ec4','#d4522a'];
+  // pontos de cada camada (do topo para base)
+  const camadas = [
+    {pts:'170,20 85,74 255,74',   cx:170, cy:47},
+    {pts:'85,77 42,131 298,131 255,77', cx:170, cy:104},
+    {pts:'42,134 0,188 340,188 298,134', cx:170, cy:161},
+    {pts:'0,191 0,228 340,228 340,191', cx:170, cy:210},
+    {pts:'0,231 0,300 340,300 340,231', cx:170, cy:266},
+  ];
+
+  const svgCamadas = PIR_CATS.map((cat,ci)=>{
+    const catData=dados[ci];
+    const teto=liq*cat.pct/100;
+    const transp=(catData.transposicoes||[]).reduce((s,t)=>s+t.valor,0);
+    const real=catData.itens.reduce((s,it)=>s+(it.real||0),0);
+    const pct=teto>0?Math.min(999,(real/(teto+transp||teto))*100):0;
+    const over=real>teto;
+    const cor=over?'#c0392b':pirCores[ci];
+    const cam=camadas[4-ci]; // invertido: topo = invest (4)
+    const camIdx=4-ci;
+    const camD=camadas[camIdx];
+    const pctStr=real>0?pct.toFixed(0)+'%':'—';
+    const pctCor=over?'#ff6b6b':pct>80?'#ffd43b':pct>0?'#a9e34b':'rgba(255,255,255,0.4)';
+    return `<polygon points="${camD.pts}" fill="${cor}" stroke="#fff" stroke-width="1.5"/>
+<text x="${camD.cx}" y="${camD.cy-5}" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="9" font-weight="600" fill="rgba(255,255,255,0.9)">${cat.nome} ${cat.pct}%</text>
+<text x="${camD.cx}" y="${camD.cy+8}" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="10" font-weight="700" fill="${pctCor}">${pctStr} usado</text>`;
+  }).join('');
+
+  document.getElementById('pir-svg-wrap').innerHTML=`
+    <svg viewBox="0 0 340 320" width="100%" xmlns="http://www.w3.org/2000/svg" style="display:block">
+      ${svgCamadas}
+      <line x1="6" y1="28" x2="6" y2="290" stroke="rgba(100,80,40,0.3)" stroke-width="1"/>
+      <text x="3" y="159" font-family="DM Sans,sans-serif" font-size="8" fill="rgba(100,80,40,0.5)" transform="rotate(-90,3,159)">PRIORIDADE</text>
+    </svg>`;
+
 
   // Créditos e déficits
   let credHTML = '', defHTML = '', totCred = 0, totDef = 0;
