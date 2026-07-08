@@ -270,6 +270,7 @@ if(SUPABASE_URL !== 'COLE_AQUI_SUA_URL' && SUPABASE_KEY !== 'COLE_AQUI_SUA_ANON_
   <div class="tab" onclick="switchTab(10)" id="tabSuspensos">🟡 Suspensos</div>
   <div class="tab" id="tabAdmin" style="display:none" onclick="switchTab(11)">⚙️ Admin</div>
   <div class="tab" id="tabAnalise" style="display:none" onclick="switchTab(12)">📊 Análise</div>
+  <div class="tab" id="tabPiramide" style="display:none" onclick="switchTab(13)">🔺 Pirâmide</div>
 </div>
 <div class="content-wrap">
 <div class="content">
@@ -704,6 +705,65 @@ if(SUPABASE_URL !== 'COLE_AQUI_SUA_URL' && SUPABASE_KEY !== 'COLE_AQUI_SUA_ANON_
   <div class="card">
     <div class="card-title" style="margin-bottom:10px">🏆 Top 10 Maiores Gastos do Mês</div>
     <div id="analiseTop10"></div>
+  </div>
+</div>
+
+<!-- ABA 13: PIRÂMIDE FINANCEIRA (admin only) -->
+<div class="tab-pane" id="pane13">
+  <div class="sec-header">
+    <div class="sec-title">🔺 Pirâmide Financeira</div>
+    <div class="sec-actions">
+      <button class="btn btn-sm" onclick="piramideVerAbas('dashboard')" id="pir-btn-dash" style="background:var(--dark2);color:var(--gold);border-color:var(--dark2)">📊 Dashboard</button>
+      <button class="btn btn-sm" onclick="piramideVerAbas('piramide')" id="pir-btn-pir">🔺 A Pirâmide</button>
+      <button class="btn btn-sm" onclick="piramideVerAbas('historico')" id="pir-btn-hist">📅 Histórico</button>
+    </div>
+  </div>
+
+  <!-- PAINEL: DASHBOARD -->
+  <div id="pir-panel-dashboard">
+    <!-- KPIs -->
+    <div class="grid-4" style="margin-bottom:12px" id="pir-kpis"></div>
+
+    <!-- Barras da pirâmide -->
+    <div class="card" style="margin-bottom:12px" id="pir-barras-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div class="card-title" style="margin:0">Alocação da Receita — Mês Atual</div>
+        <span id="pir-mes-label" style="font-size:12px;color:var(--text3)"></span>
+      </div>
+      <div id="pir-barras"></div>
+    </div>
+
+    <!-- Créditos e déficits -->
+    <div class="grid-2" style="margin-bottom:12px">
+      <div class="card" style="border-left:4px solid var(--green)">
+        <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--green);margin-bottom:10px;font-weight:600">✦ Créditos Não Usados</div>
+        <div id="pir-creditos"></div>
+      </div>
+      <div class="card" style="border-left:4px solid var(--red)">
+        <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--red);margin-bottom:10px;font-weight:600">⚠ Déficits</div>
+        <div id="pir-deficits"></div>
+      </div>
+    </div>
+
+    <!-- Cards das categorias -->
+    <div id="pir-cats"></div>
+  </div>
+
+  <!-- PAINEL: A PIRÂMIDE (categorias com itens) -->
+  <div id="pir-panel-piramide" style="display:none">
+    <div id="pir-cats-detalhe"></div>
+  </div>
+
+  <!-- PAINEL: HISTÓRICO -->
+  <div id="pir-panel-historico" style="display:none">
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title" style="margin-bottom:10px">📈 Evolução por Camada — Últimos 12 meses</div>
+      <div class="chart-wrap" style="height:240px"><canvas id="chartPirHistorico"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="margin-bottom:10px">📋 Histórico de Alocação Mensal</div>
+      <div class="table-wrap" id="pir-historico-tabela"></div>
+    </div>
   </div>
 </div>
 
@@ -1545,7 +1605,49 @@ if(SUPABASE_URL !== 'COLE_AQUI_SUA_URL' && SUPABASE_KEY !== 'COLE_AQUI_SUA_ANON_
 </div>
 </div>
 
+<!-- Modal Item Pirâmide -->
+<div class="modal-overlay" id="modalPirItem">
+<div class="modal" style="max-width:460px">
+  <div class="modal-title" id="pirItemTitulo">Editar Item</div>
+  <input type="hidden" id="pirItemCatIdx">
+  <input type="hidden" id="pirItemIdx">
+  <div class="form-row"><label>Descrição <span style="color:var(--red)">*</span></label>
+    <input type="text" id="pirItemDesc" placeholder="Ex: Aluguel, Supermercado...">
+  </div>
+  <div class="form-row"><label>Subcategoria</label>
+    <input type="text" id="pirItemSub" placeholder="Ex: Moradia, Alimentação...">
+  </div>
+  <div class="form-row"><label>Valor Planejado (R$)</label>
+    <input type="number" id="pirItemPlan" placeholder="0,00" step="0.01" min="0">
+  </div>
+  <div class="form-row"><label>Valor Real (R$) <span style="font-size:10px;color:var(--text3)">(auto-preenchido, editável)</span></label>
+    <input type="number" id="pirItemReal" placeholder="0,00" step="0.01" min="0" style="color:var(--green-t);font-weight:600">
+  </div>
+  <div class="form-row"><label>Observação</label>
+    <input type="text" id="pirItemObs" placeholder="Ex: Recorrente, sazonale...">
+  </div>
+  <div class="modal-actions">
+    <button class="btn" onclick="closeModal('modalPirItem')">Cancelar</button>
+    <button class="btn btn-gold" onclick="salvarPirItem()"><i class="ti ti-check"></i> Salvar</button>
+  </div>
+</div>
+</div>
+
+<!-- Modal Transposição Pirâmide -->
+<div class="modal-overlay" id="modalPirTransposicao">
+<div class="modal" style="max-width:480px">
+  <div class="modal-title">✦ Transposição de Créditos</div>
+  <div style="font-size:13px;color:var(--text2);margin-bottom:14px" id="pirTranspDesc"></div>
+  <div id="pirTranspBody"></div>
+  <div class="modal-actions">
+    <button class="btn" onclick="closeModal('modalPirTransposicao')">Pular</button>
+    <button class="btn btn-gold" onclick="confirmarPirTransposicao()"><i class="ti ti-check"></i> Aplicar</button>
+  </div>
+</div>
+</div>
+
 <!-- Modal Confirmação -->
+
 <div class="modal-overlay" id="modalConfirm">
 <div class="modal" style="max-width:360px">
   <div class="modal-title" style="font-size:16px">Confirmar exclusão</div>
@@ -1853,6 +1955,7 @@ function renderTab(i){
   if(i===10) renderSuspensos();
   if(i===11) renderAdmin();
   if(i===12) renderAnalise();
+  if(i===13) renderPiramide();
 }
 function renderAll(){ renderTab(activeTab); }
 
@@ -4841,6 +4944,8 @@ function admVerificarAdmin(email){
     tabAdmin.style.display = '';
     const tabAnalise = document.getElementById('tabAnalise');
     if(tabAnalise) tabAnalise.style.display = '';
+    const tabPiramide = document.getElementById('tabPiramide');
+    if(tabPiramide) tabPiramide.style.display = '';
   }
 }
 
@@ -5029,8 +5134,508 @@ function renderAdmin(){
 }
 
 // ═══════════════════════════════════════════════
-// ANÁLISE FINANCEIRA INTELIGENTE (admin only)
+// PIRÂMIDE FINANCEIRA (admin only)
 // ═══════════════════════════════════════════════
+
+const PIR_CATS = [
+  { id:0, nome:'Necessidades Básicas',    icon:'🏠', pct:50, cor:'#d4522a', regra:'Parcelas somente em último caso. Use a sobra como buffer para IPVA, farmácia e imprevistos.',
+    itensDefault:[
+      {desc:'Aluguel',sub:'Moradia',plan:0,obs:''},
+      {desc:'Condomínio',sub:'Moradia',plan:0,obs:''},
+      {desc:'IPTU (1/12)',sub:'Moradia',plan:0,obs:''},
+      {desc:'Energia',sub:'Moradia',plan:0,obs:''},
+      {desc:'Água',sub:'Moradia',plan:0,obs:''},
+      {desc:'Internet',sub:'Moradia',plan:0,obs:''},
+      {desc:'Supermercado',sub:'Alimentação',plan:0,obs:''},
+      {desc:'Açougue',sub:'Alimentação',plan:0,obs:''},
+      {desc:'Combustível',sub:'Transporte',plan:0,obs:''},
+      {desc:'Estacionamento',sub:'Transporte',plan:0,obs:''},
+      {desc:'Farmácia',sub:'Saúde',plan:0,obs:''},
+    ]
+  },
+  { id:1, nome:'Segurança Financeira',    icon:'🛡', pct:15, cor:'#2e7ec4', regra:'Valores intocáveis — uso exclusivo em emergências. Liquidez diária obrigatória.',
+    itensDefault:[
+      {desc:'Reserva de dívidas',sub:'Emergência',plan:0,obs:'CDB liquidez diária'},
+      {desc:'Reserva de saúde',sub:'Emergência',plan:0,obs:'CDB liquidez diária'},
+      {desc:'Manutenção predial',sub:'Manutenção',plan:0,obs:'CDB liquidez diária'},
+      {desc:'Manutenção veicular',sub:'Manutenção',plan:0,obs:'CDB liquidez diária'},
+      {desc:'Seguro de vida',sub:'Seguros',plan:0,obs:''},
+    ]
+  },
+  { id:2, nome:'Qualidade de Vida',       icon:'🌱', pct:15, cor:'#178a68', regra:'Mensalidades em cartão recorrente exclusivo — não misture com gastos variáveis.',
+    itensDefault:[
+      {desc:'Inglês',sub:'Educação',plan:0,obs:'Recorrente'},
+      {desc:'Curso online',sub:'Educação',plan:0,obs:'Recorrente'},
+      {desc:'Academia',sub:'Bem-estar',plan:0,obs:'Recorrente'},
+      {desc:'Pilates',sub:'Bem-estar',plan:0,obs:'Recorrente'},
+      {desc:'Barbearia',sub:'Conforto',plan:0,obs:'Recorrente'},
+    ]
+  },
+  { id:3, nome:'Lazer',                   icon:'✈️', pct:10, cor:'#7c5bbf', regra:'Lazer grande: planejamento 12 meses. Lazer pequeno: teto semanal fixo.',
+    itensDefault:[
+      {desc:'Viagem (reserva)',sub:'Lazer grande',plan:0,obs:'12 meses de antecedência'},
+      {desc:'Shows / eventos',sub:'Lazer grande',plan:0,obs:'Planejado'},
+      {desc:'Restaurantes',sub:'Lazer pequeno',plan:0,obs:'Teto semanal'},
+      {desc:'Cinema / passeios',sub:'Lazer pequeno',plan:0,obs:''},
+    ]
+  },
+  { id:4, nome:'Investimentos',            icon:'📈', pct:10, cor:'#b8880e', regra:'Aportes mensais automáticos. Dividendos sempre reinvestidos. Retirada de 3% apenas no fim do ciclo anual.',
+    itensDefault:[
+      {desc:'Ações BR',sub:'Renda variável',plan:0,obs:'Dividendos: reinvestir'},
+      {desc:'FIIs',sub:'Renda variável',plan:0,obs:'Dividendos: reinvestir'},
+      {desc:'Ouro',sub:'Proteção',plan:0,obs:''},
+      {desc:'Tesouro Direto',sub:'Renda fixa',plan:0,obs:''},
+    ]
+  },
+];
+
+// Storage da pirâmide
+function pirGetDados(mes){
+  const key = `fc_${perfilAtivo}_pir_${mes}`;
+  const raw = LS(key);
+  if(raw) return raw;
+  // Inicializa com defaults
+  return PIR_CATS.map(cat=>({
+    catId: cat.id,
+    itens: cat.itensDefault.map(it=>({...it, real:0})),
+    transposicoes: []
+  }));
+}
+function pirSalvarDados(mes, dados){
+  const key = `fc_${perfilAtivo}_pir_${mes}`;
+  SS(key, dados);
+  // Sincroniza via Supabase
+  if(window._sbReady && _sbUserId) sbSalvar('pir_'+mes, dados);
+}
+
+// Auto-preenchimento: cruza com despesas e compras
+function pirAutoPreencherReal(mes, dados){
+  const despArr = despesas().filter(x=>x.mes===mes && x.status!=='Suspenso');
+  const compArr = compras().filter(x=>x.mes===mes);
+
+  dados.forEach((catData, ci)=>{
+    catData.itens.forEach(item=>{
+      // Busca matching por similaridade de descrição
+      let valorReal = 0;
+      const descLow = item.desc.toLowerCase();
+
+      // Tenta encontrar em despesas
+      const matchDesp = despArr.find(d=>
+        d.desc.toLowerCase().includes(descLow.substring(0,5)) ||
+        descLow.includes(d.desc.toLowerCase().substring(0,5))
+      );
+      if(matchDesp) valorReal = Number(matchDesp.valor||0);
+
+      // Tenta encontrar em compras
+      if(!valorReal){
+        const matchComp = compArr.find(c=>
+          c.desc.toLowerCase().includes(descLow.substring(0,5)) ||
+          descLow.includes(c.desc.toLowerCase().substring(0,5))
+        );
+        if(matchComp) valorReal = Number(matchComp.parcMes||matchComp.valor||0);
+      }
+
+      // Só preenche se o real está zerado (não sobrescreve edição manual)
+      if(item.real === 0 && valorReal > 0) item.real = valorReal;
+    });
+  });
+  return dados;
+}
+
+let _pirView = 'dashboard';
+let _pirHistChart = null;
+let _pirTranspPendente = null;
+
+function piramideVerAbas(view){
+  _pirView = view;
+  ['dashboard','piramide','historico'].forEach(v=>{
+    const p = document.getElementById('pir-panel-'+v);
+    const b = document.getElementById('pir-btn-'+v.substring(0,4));
+    if(p) p.style.display = v===view ? '' : 'none';
+    if(b){
+      b.style.background = v===view ? 'var(--dark2)' : '';
+      b.style.color = v===view ? 'var(--gold)' : '';
+      b.style.borderColor = v===view ? 'var(--dark2)' : '';
+    }
+  });
+  renderPiramide();
+}
+
+function renderPiramide(){
+  const mes = getMes();
+  const [ano, m] = mes.split('-').map(Number);
+  const mesLabel = new Date(ano,m-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  document.getElementById('pir-mes-label').textContent = mesLabel;
+
+  let dados = pirGetDados(mes);
+  dados = pirAutoPreencherReal(mes, dados);
+  pirSalvarDados(mes, dados);
+
+  const liq = receitas().filter(x=>x.mes===mes).reduce((s,x)=>s+Number(x.liq||0),0);
+
+  if(_pirView==='dashboard') renderPirDashboard(dados, liq, mes, mesLabel);
+  else if(_pirView==='piramide') renderPirCats(dados, liq, mes);
+  else if(_pirView==='historico') renderPirHistorico(ano);
+}
+
+function renderPirDashboard(dados, liq, mes, mesLabel){
+  const totPlan = dados.reduce((s,cat)=>s+cat.itens.reduce((ss,it)=>ss+(it.plan||0),0),0);
+  const totReal = dados.reduce((s,cat)=>s+cat.itens.reduce((ss,it)=>ss+(it.real||0),0),0);
+  const saldo = liq - totReal;
+
+  // KPIs
+  document.getElementById('pir-kpis').innerHTML=`
+    <div class="card"><div class="card-title">Receita Líquida</div><div class="card-value" style="color:var(--gold-d)">${fmt(liq)}</div><div class="card-sub">Base da pirâmide</div></div>
+    <div class="card"><div class="card-title">Total Planejado</div><div class="card-value">${fmt(totPlan)}</div><div class="card-sub">${liq>0?((totPlan/liq)*100).toFixed(1)+'%':''} da receita</div></div>
+    <div class="card"><div class="card-title">Total Real</div><div class="card-value" style="color:${totReal>liq?'var(--red)':'var(--text)'}">${fmt(totReal)}</div><div class="card-sub">${liq>0?((totReal/liq)*100).toFixed(1)+'%':''} da receita</div></div>
+    <div class="card"><div class="card-title">Saldo Disponível</div><div class="card-value" style="color:${saldo>=0?'var(--green)':'var(--red)'}">${fmt(saldo)}</div><div class="card-sub">${saldo>=0?'✓ Positivo':'⚠ Negativo'}</div></div>`;
+
+  // Barras
+  let barrasHTML = '';
+  [...dados].reverse().forEach((catData,ri)=>{
+    const ci = 4-ri;
+    const cat = PIR_CATS[ci];
+    const teto = liq * cat.pct / 100;
+    const transp = (catData.transposicoes||[]).reduce((s,t)=>s+t.valor,0);
+    const tetoEfetivo = teto + transp;
+    const real = catData.itens.reduce((s,it)=>s+(it.real||0),0);
+    const pct = tetoEfetivo>0 ? Math.min(100,(real/tetoEfetivo)*100) : 0;
+    const over = real > teto;
+    const cor = over ? '#c0392b' : cat.cor;
+
+    barrasHTML += `
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <div style="width:170px;font-size:12px;color:var(--text2);text-align:right;flex-shrink:0">${cat.icon} ${cat.nome}</div>
+        <div style="flex:1;height:30px;background:var(--cream2);border-radius:5px;overflow:hidden;cursor:pointer" onclick="piramideVerAbas('piramide')">
+          <div style="width:${pct}%;height:100%;background:${cor};border-radius:5px;display:flex;align-items:center;padding:0 10px;gap:6px;transition:width .7s ease;min-width:${real>0?'60px':'0'}">
+            ${real>0?`<span style="font-size:11px;font-weight:600;color:#fff;white-space:nowrap">${fmt(real)}</span><span style="font-size:10px;background:rgba(0,0,0,.2);padding:1px 5px;border-radius:4px;color:#fff">${pct.toFixed(0)}%</span>`:''}
+          </div>
+        </div>
+        <div style="width:140px;font-size:11px;color:var(--text3);flex-shrink:0">
+          <div>teto ${fmt(teto)}</div>
+          ${transp>0?`<div style="color:var(--green);font-size:10px">+${fmt(transp)} transf.</div>`:''}
+          <div style="color:${over?'var(--red)':pct>80?'var(--yellow)':'var(--green)'};font-weight:600">${real>0?pct.toFixed(0)+'% usado':''}</div>
+        </div>
+      </div>`;
+  });
+  document.getElementById('pir-barras').innerHTML = barrasHTML;
+
+  // Créditos e déficits
+  let credHTML = '', defHTML = '', totCred = 0, totDef = 0;
+  dados.forEach((catData, ci)=>{
+    const cat = PIR_CATS[ci];
+    const teto = liq * cat.pct / 100;
+    const transp = (catData.transposicoes||[]).reduce((s,t)=>s+t.valor,0);
+    const real = catData.itens.reduce((s,it)=>s+(it.real||0),0);
+    const diff = teto + transp - real;
+    const pctU = (teto>0)?(real/(teto+transp)*100):0;
+    if(diff > 0.01){
+      totCred += diff;
+      credHTML += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px">
+        <span style="color:var(--text2)">${cat.icon} ${cat.nome} <span style="font-size:10px;color:var(--text3)">${pctU.toFixed(0)}% usado</span></span>
+        <span style="font-weight:600;color:var(--green)">${fmt(diff)}</span>
+      </div>`;
+    } else if(diff < -0.01){
+      totDef += Math.abs(diff);
+      defHTML += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px">
+        <span style="color:var(--text2)">${cat.icon} ${cat.nome}</span>
+        <span style="font-weight:600;color:var(--red)">−${fmt(Math.abs(diff))}</span>
+      </div>`;
+    }
+  });
+  credHTML += totCred>0?`<div style="display:flex;justify-content:space-between;padding-top:8px;font-size:13px;font-weight:700"><span>Total créditos</span><span style="color:var(--green)">${fmt(totCred)}</span></div>`:'';
+  document.getElementById('pir-creditos').innerHTML = credHTML||`<div style="font-size:12px;color:var(--text3);padding:8px 0">Nenhuma economia ainda 👍</div>`;
+  document.getElementById('pir-deficits').innerHTML = defHTML||`<div style="font-size:12px;color:var(--text3);padding:8px 0">Nenhum estouro registrado 👍</div>`;
+
+  // Cards resumo categorias
+  let catsHTML = '';
+  dados.forEach((catData,ci)=>{
+    const cat = PIR_CATS[ci];
+    const teto = liq * cat.pct / 100;
+    const transp = (catData.transposicoes||[]).reduce((s,t)=>s+t.valor,0);
+    const real = catData.itens.reduce((s,it)=>s+(it.real||0),0);
+    const plan = catData.itens.reduce((s,it)=>s+(it.plan||0),0);
+    const pct = (teto+transp)>0 ? (real/(teto+transp)*100) : 0;
+    const over = real > teto;
+    catsHTML += `
+      <div class="card" style="margin-bottom:8px;cursor:pointer" onclick="piramideVerAbas('piramide')">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:36px;height:36px;border-radius:8px;background:${cat.cor}22;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${cat.icon}</div>
+          <div style="flex:1">
+            <div style="font-size:13.5px;font-weight:600">${cat.nome} <span style="font-size:10px;color:var(--text3)">${cat.pct}%</span></div>
+            <div style="font-size:11px;color:var(--text3)">Teto ${fmt(teto)}${transp>0?' + '+fmt(transp)+' transf.':''}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:16px;font-weight:700;font-family:'Cormorant Garamond',serif;color:${over?'var(--red)':real>0?cat.cor:'var(--text3)'}">${real>0?fmt(real):'—'}</div>
+            <div style="font-size:11px;color:${pct>100?'var(--red)':pct>80?'var(--yellow)':'var(--text3)'}">${real>0?pct.toFixed(0)+'% · ':' '}plan. ${fmt(plan)}</div>
+          </div>
+        </div>
+        <div style="height:4px;background:var(--cream3);border-radius:2px;margin-top:8px;overflow:hidden"><div style="width:${Math.min(pct,100)}%;height:4px;background:${over?'var(--red)':cat.cor};border-radius:2px"></div></div>
+      </div>`;
+  });
+  document.getElementById('pir-cats').innerHTML = catsHTML;
+}
+
+function renderPirCats(dados, liq, mes){
+  let html = '';
+  dados.forEach((catData,ci)=>{
+    const cat = PIR_CATS[ci];
+    const teto = liq * cat.pct / 100;
+    const transp = (catData.transposicoes||[]).reduce((s,t)=>s+t.valor,0);
+    const real = catData.itens.reduce((s,it)=>s+(it.real||0),0);
+    const plan = catData.itens.reduce((s,it)=>s+(it.plan||0),0);
+    const pct = (teto+transp)>0 ? Math.min(100,(real/(teto+transp)*100)) : 0;
+    const over = real > teto;
+    const saldo = teto + transp - real;
+
+    const rows = catData.itens.map((item,ii)=>`
+      <tr>
+        <td><b>${item.desc}</b> <span style="font-size:10px;color:var(--text3)">${item.sub||''}</span></td>
+        <td style="text-align:right">
+          <input type="number" value="${item.plan||''}" step="0.01" min="0"
+            style="width:100px;padding:4px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;text-align:right;background:var(--cream);color:var(--text);font-family:'DM Sans',sans-serif;outline:none"
+            onchange="pirAtualizarItem(${ci},${ii},'plan',this.value)"
+            onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border2)'">
+        </td>
+        <td style="text-align:right">
+          <input type="number" value="${item.real||''}" step="0.01" min="0"
+            style="width:100px;padding:4px 8px;border:1px solid rgba(45,122,79,.3);border-radius:5px;font-size:12px;text-align:right;background:var(--green-bg);color:var(--green-t);font-family:'DM Sans',sans-serif;font-weight:600;outline:none"
+            onchange="pirAtualizarItem(${ci},${ii},'real',this.value)"
+            onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='rgba(45,122,79,.3)'">
+        </td>
+        <td style="text-align:right;font-size:12px">
+          ${(item.plan&&item.real)?`<span style="color:${item.plan>=item.real?'var(--green)':'var(--red)'}">${item.plan>=item.real?'+':'-'}${fmt(Math.abs(item.plan-item.real)).replace('R$ ','')}</span>`:'—'}
+        </td>
+        <td style="text-align:right">
+          <div style="display:flex;gap:4px;justify-content:flex-end">
+            <button class="btn btn-icon btn-sm" onclick="openPirItemModal(${ci},${ii})" title="Editar"><i class="ti ti-edit"></i></button>
+            <button class="btn btn-icon btn-sm btn-danger" onclick="pirRemoverItem(${ci},${ii})" title="Remover"><i class="ti ti-trash"></i></button>
+          </div>
+        </td>
+      </tr>`).join('');
+
+    html += `
+      <div class="card" style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+          <span style="font-size:22px">${cat.icon}</span>
+          <div style="flex:1">
+            <div style="font-size:16px;font-weight:700;font-family:'Cormorant Garamond',serif">${cat.nome}
+              <span style="font-size:10.5px;font-weight:400;color:${over?'var(--red)':'var(--text3)'}"> — ${pct.toFixed(0)}% do teto</span>
+            </div>
+            <div style="font-size:11.5px;color:var(--text3)">${cat.pct}% da receita · teto ${fmt(teto)}${transp>0?' + '+fmt(transp)+' transf.':''}</div>
+          </div>
+          <span style="font-size:13px;font-weight:600;color:${over?'var(--red)':saldo>=0?'var(--green)':'var(--red)'}">
+            ${saldo>=0?'↓ sobra '+fmt(saldo):'↑ estouro '+fmt(Math.abs(saldo))}
+          </span>
+        </div>
+        <div style="background:${cat.cor}15;border-left:3px solid ${cat.cor};border-radius:0 6px 6px 0;padding:8px 12px;font-size:12px;color:var(--text2);margin-bottom:10px">${cat.regra}</div>
+        ${transp>0?`<div style="background:var(--green-bg);border-radius:8px;padding:7px 12px;font-size:12px;color:var(--green-t);margin-bottom:10px">✦ Crédito recebido: ${fmt(transp)}</div>`:''}
+        <div style="height:6px;background:var(--cream3);border-radius:3px;margin-bottom:12px;overflow:hidden">
+          <div style="width:${pct}%;height:6px;background:${over?'var(--red)':cat.cor};border-radius:3px;transition:width .6s ease"></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Item</th><th style="text-align:right">Planejado</th><th style="text-align:right">Real</th><th style="text-align:right">Diferença</th><th></th></tr></thead>
+            <tbody>${rows}</tbody>
+            <tfoot><tr>
+              <td><b>Saldo</b></td>
+              <td style="text-align:right"><b>${fmt(plan)}</b></td>
+              <td style="text-align:right;color:var(--green);font-weight:600">${fmt(real)}</td>
+              <td style="text-align:right"><b style="color:${saldo>=0?'var(--green)':'var(--red)'}">${saldo>=0?'+':'-'}${fmt(Math.abs(saldo)).replace('R$ ','')}</b></td>
+              <td></td>
+            </tfoot>
+          </table>
+        </div>
+        <div style="padding:10px 0 4px;border-top:1px solid var(--border);margin-top:4px;display:flex;justify-content:space-between;align-items:center">
+          <button class="btn btn-sm" onclick="pirAdicionarItem(${ci})"><i class="ti ti-plus"></i> Adicionar item</button>
+          <button class="btn btn-sm" onclick="pirAutoPreencherCat(${ci})" style="color:var(--blue);border-color:var(--blue-bg)"><i class="ti ti-sparkles"></i> Auto-preencher Real</button>
+        </div>
+      </div>`;
+  });
+  document.getElementById('pir-cats-detalhe').innerHTML = html;
+}
+
+function renderPirHistorico(ano){
+  const MESES_PT=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const mesesAno=[];
+  for(let mi=0;mi<12;mi++){
+    const mk=`${ano}-${String(mi+1).padStart(2,'0')}`;
+    const liq=receitas().filter(x=>x.mes===mk).reduce((s,x)=>s+Number(x.liq||0),0);
+    const dados=pirGetDados(mk);
+    mesesAno.push({mk, label:MESES_PT[mi], liq, dados});
+  }
+
+  // Gráfico de evolução
+  if(_pirHistChart) _pirHistChart.destroy();
+  const ctx=document.getElementById('chartPirHistorico');
+  const coresCats=PIR_CATS.map(c=>c.cor);
+  _pirHistChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:mesesAno.map(m=>m.label),
+      datasets:PIR_CATS.map((cat,ci)=>({
+        label:cat.icon+' '+cat.nome,
+        data:mesesAno.map(m=>{
+          const catData=m.dados[ci];
+          return catData?catData.itens.reduce((s,it)=>s+(it.real||0),0):0;
+        }),
+        borderColor:cat.cor,
+        backgroundColor:cat.cor+'25',
+        fill:false,
+        tension:0.4,
+        pointRadius:3
+      }))
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:10.5},boxWidth:10}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:10.5}}},
+              y:{ticks:{callback:v=>'R$'+Math.round(v/1000)+'k',font:{size:10.5}},grid:{color:'rgba(180,160,120,.15)'}}}}
+  });
+
+  // Tabela histórico
+  const mes=getMes();
+  const thCols=mesesAno.map((m,i)=>`<th style="text-align:right;font-size:11px;${m.mk===mes?'color:var(--gold-d)':''}">${m.label}</th>`).join('');
+  const rows=PIR_CATS.map(cat=>`
+    <tr>
+      <td style="font-size:12.5px;white-space:nowrap">${cat.icon} ${cat.nome}</td>
+      ${mesesAno.map(m=>{
+        const catData=m.dados[cat.id];
+        const real=catData?catData.itens.reduce((s,it)=>s+(it.real||0),0):0;
+        const teto=m.liq*cat.pct/100;
+        const pct=teto>0?(real/teto*100):0;
+        return `<td style="text-align:right;font-size:11.5px;${m.mk===mes?'background:var(--yellow-bg)':''}">
+          ${real>0?`<div style="font-weight:600">${fmt(real)}</div><div style="font-size:10px;color:${pct>100?'var(--red)':pct>80?'var(--yellow)':'var(--text3)'}">${pct.toFixed(0)}%</div>`:'<span style="color:var(--cream4)">—</span>'}
+        </td>`;
+      }).join('')}
+    </tr>`).join('');
+  const totalCols=mesesAno.map(m=>{
+    const tot=m.dados.reduce((s,cat)=>s+cat.itens.reduce((ss,it)=>ss+(it.real||0),0),0);
+    return `<td style="text-align:right;font-weight:700;font-size:12px;${m.mk===mes?'background:var(--yellow-bg)':''}">${tot>0?fmt(tot):'—'}</td>`;
+  }).join('');
+  document.getElementById('pir-historico-tabela').innerHTML=`
+    <table><thead><tr><th>Categoria</th>${thCols}</tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td><b>Total</b></td>${totalCols}</tr></tfoot></table>`;
+}
+
+// ── CRUD Itens da Pirâmide ──
+function pirAtualizarItem(ci, ii, campo, valor){
+  const mes = getMes();
+  const dados = pirGetDados(mes);
+  dados[ci].itens[ii][campo] = parseFloat(valor)||0;
+  pirSalvarDados(mes, dados);
+  renderPiramide();
+}
+function pirAdicionarItem(ci){
+  const mes = getMes();
+  const dados = pirGetDados(mes);
+  dados[ci].itens.push({desc:'Novo item',sub:'',plan:0,real:0,obs:''});
+  pirSalvarDados(mes, dados);
+  openPirItemModal(ci, dados[ci].itens.length-1);
+}
+function pirRemoverItem(ci, ii){
+  confirmar('Remover este item da pirâmide?',()=>{
+    const mes=getMes();
+    const dados=pirGetDados(mes);
+    dados[ci].itens.splice(ii,1);
+    pirSalvarDados(mes, dados);
+    renderPiramide();
+  });
+}
+function pirAutoPreencherCat(ci){
+  const mes=getMes();
+  const dados=pirGetDados(mes);
+  const despArr=despesas().filter(x=>x.mes===mes&&x.status!=='Suspenso');
+  const compArr=compras().filter(x=>x.mes===mes);
+  dados[ci].itens.forEach(item=>{
+    const descLow=item.desc.toLowerCase();
+    const matchD=despArr.find(d=>d.desc.toLowerCase().includes(descLow.substring(0,5))||descLow.includes(d.desc.toLowerCase().substring(0,5)));
+    if(matchD){ item.real=Number(matchD.valor||0); return; }
+    const matchC=compArr.find(c=>c.desc.toLowerCase().includes(descLow.substring(0,5))||descLow.includes(c.desc.toLowerCase().substring(0,5)));
+    if(matchC) item.real=Number(matchC.parcMes||matchC.valor||0);
+  });
+  pirSalvarDados(mes,dados);
+  renderPiramide();
+  showToast('✅ Valores reais atualizados!');
+}
+function openPirItemModal(ci, ii){
+  const mes=getMes();
+  const dados=pirGetDados(mes);
+  const item=dados[ci].itens[ii];
+  document.getElementById('pirItemCatIdx').value=ci;
+  document.getElementById('pirItemIdx').value=ii;
+  document.getElementById('pirItemTitulo').textContent=`Editar — ${PIR_CATS[ci].nome}`;
+  document.getElementById('pirItemDesc').value=item.desc||'';
+  document.getElementById('pirItemSub').value=item.sub||'';
+  document.getElementById('pirItemPlan').value=item.plan||'';
+  document.getElementById('pirItemReal').value=item.real||'';
+  document.getElementById('pirItemObs').value=item.obs||'';
+  openModal('modalPirItem');
+}
+function salvarPirItem(){
+  const ci=parseInt(document.getElementById('pirItemCatIdx').value);
+  const ii=parseInt(document.getElementById('pirItemIdx').value);
+  const mes=getMes();
+  const dados=pirGetDados(mes);
+  dados[ci].itens[ii]={
+    desc:document.getElementById('pirItemDesc').value.trim()||'Item',
+    sub:document.getElementById('pirItemSub').value.trim(),
+    plan:parseFloat(document.getElementById('pirItemPlan').value)||0,
+    real:parseFloat(document.getElementById('pirItemReal').value)||0,
+    obs:document.getElementById('pirItemObs').value.trim()
+  };
+  pirSalvarDados(mes,dados);
+  closeModal('modalPirItem');
+  renderPiramide();
+  showToast('✅ Item salvo!');
+}
+
+// ── Transposição de créditos (virada de mês) ──
+function verificarTransposicaoPir(mesSrc, mesDst){
+  const liq=receitas().filter(x=>x.mes===mesSrc).reduce((s,x)=>s+Number(x.liq||0),0);
+  const dados=pirGetDados(mesSrc);
+  const creditos=[];
+  dados.forEach((catData,ci)=>{
+    const teto=liq*PIR_CATS[ci].pct/100;
+    const transp=(catData.transposicoes||[]).reduce((s,t)=>s+t.valor,0);
+    const real=catData.itens.reduce((s,it)=>s+(it.real||0),0);
+    const cred=teto+transp-real;
+    if(cred>0.01) creditos.push({ci,cat:PIR_CATS[ci],cred});
+  });
+  if(creditos.length){
+    _pirTranspPendente={creditos,mesSrc,mesDst};
+    document.getElementById('pirTranspDesc').textContent=`O mês de ${mesSrc} terminou com créditos disponíveis. Deseja transferir algum valor para ${mesDst}?`;
+    document.getElementById('pirTranspBody').innerHTML=
+      creditos.map(({ci,cat,cred})=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:8px;background:var(--cream2);margin-bottom:6px;border:1px solid var(--border)">
+          <div><span style="margin-right:6px">${cat.icon}</span><b>${cat.nome}</b><br><span style="font-size:11px;color:var(--green)">Crédito: ${fmt(cred)}</span></div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:12px;color:var(--text3)">Transferir:</span>
+            <input type="number" id="pirTx_${ci}" value="0" max="${cred}" step="0.01" min="0"
+              style="width:90px;padding:5px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;text-align:right;background:#fff;color:var(--text);font-family:'DM Sans',sans-serif">
+          </div>
+        </div>`).join('');
+    openModal('modalPirTransposicao');
+  }
+}
+function confirmarPirTransposicao(){
+  if(!_pirTranspPendente) return;
+  const {creditos,mesDst}=_pirTranspPendente;
+  const dadosDst=pirGetDados(mesDst);
+  creditos.forEach(({ci,cred})=>{
+    const v=Math.min(parseFloat(document.getElementById(`pirTx_${ci}`)?.value)||0,cred);
+    if(v>0){
+      if(!dadosDst[ci].transposicoes) dadosDst[ci].transposicoes=[];
+      dadosDst[ci].transposicoes.push({valor:v,deMes:_pirTranspPendente.mesSrc});
+    }
+  });
+  pirSalvarDados(mesDst,dadosDst);
+  closeModal('modalPirTransposicao');
+  renderPiramide();
+  showToast('✅ Créditos transferidos com sucesso!');
+}
+
+
 
 // Mapa de categorias automáticas por palavras-chave
 const ANALISE_CATS = {
