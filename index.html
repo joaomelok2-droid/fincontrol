@@ -5434,13 +5434,13 @@ function renderPirCats(dados, liq, mes){
         <td style="text-align:right">
           <input type="number" value="${item.plan||''}" step="0.01" min="0"
             style="width:100px;padding:4px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;text-align:right;background:var(--cream);color:var(--text);font-family:'DM Sans',sans-serif;outline:none"
-            onchange="pirAtualizarItem(${ci},${ii},'plan',this.value)"
+            onblur="pirAtualizarItem(${ci},${ii},'plan',this.value)"
             onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border2)'">
         </td>
         <td style="text-align:right">
           <input type="number" value="${item.real||''}" step="0.01" min="0"
             style="width:100px;padding:4px 8px;border:1px solid rgba(45,122,79,.3);border-radius:5px;font-size:12px;text-align:right;background:var(--green-bg);color:var(--green-t);font-family:'DM Sans',sans-serif;font-weight:600;outline:none"
-            onchange="pirAtualizarItem(${ci},${ii},'real',this.value)"
+            onblur="pirAtualizarItem(${ci},${ii},'real',this.value)"
             onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='rgba(45,122,79,.3)'">
         </td>
         <td style="text-align:right;font-size:12px">
@@ -5464,7 +5464,7 @@ function renderPirCats(dados, liq, mes){
             </div>
             <div style="font-size:11.5px;color:var(--text3)">${cat.pct}% da receita · teto ${fmt(teto)}${transp>0?' + '+fmt(transp)+' transf.':''}</div>
           </div>
-          <span style="font-size:13px;font-weight:600;color:${over?'var(--red)':saldo>=0?'var(--green)':'var(--red)'}">
+          <span id="pir-saldo-${ci}" style="font-size:13px;font-weight:600;color:${over?'var(--red)':saldo>=0?'var(--green)':'var(--red)'}">
             ${saldo>=0?'↓ sobra '+fmt(saldo):'↑ estouro '+fmt(Math.abs(saldo))}
           </span>
         </div>
@@ -5477,7 +5477,7 @@ function renderPirCats(dados, liq, mes){
           <table>
             <thead><tr><th>Item</th><th style="text-align:right">Planejado</th><th style="text-align:right">Real</th><th style="text-align:right">Diferença</th><th></th></tr></thead>
             <tbody>${rows}</tbody>
-            <tfoot><tr>
+            <tfoot><tr id="pir-foot-${ci}">
               <td><b>Saldo</b></td>
               <td style="text-align:right"><b>${fmt(plan)}</b></td>
               <td style="text-align:right;color:var(--green);font-weight:600">${fmt(real)}</td>
@@ -5564,7 +5564,27 @@ function pirAtualizarItem(ci, ii, campo, valor){
   const dados = pirGetDados(mes);
   dados[ci].itens[ii][campo] = parseFloat(valor)||0;
   pirSalvarDados(mes, dados);
-  renderPiramide();
+  // Não re-renderiza a tela inteira — só atualiza o dashboard se estiver visível
+  if(_pirView === 'dashboard') renderPiramide();
+  // Na view pirâmide, só atualiza o resumo do rodapé sem re-renderizar tudo
+  else if(_pirView === 'piramide') pirAtualizarRodape(ci, dados);
+}
+
+function pirAtualizarRodape(ci, dados){
+  const mes = getMes();
+  const liq = receitas().filter(x=>x.mes===mes).reduce((s,x)=>s+Number(x.liq||0),0);
+  const catData = dados[ci];
+  const cat = PIR_CATS[ci];
+  const teto = liq * cat.pct / 100;
+  const transp = (catData.transposicoes||[]).reduce((s,t)=>s+t.valor,0);
+  const real = catData.itens.reduce((s,it)=>s+(it.real||0),0);
+  const plan = catData.itens.reduce((s,it)=>s+(it.plan||0),0);
+  const saldo = teto + transp - real;
+  // Atualiza só o elemento de saldo daquela categoria sem re-renderizar
+  const saldoEl = document.getElementById(`pir-saldo-${ci}`);
+  if(saldoEl) saldoEl.innerHTML = `${saldo>=0?'↓ sobra '+fmt(saldo):'↑ estouro '+fmt(Math.abs(saldo))}`;
+  const saldoEl2 = document.getElementById(`pir-foot-${ci}`);
+  if(saldoEl2) saldoEl2.innerHTML = `<td><b>Saldo</b></td><td style="text-align:right"><b>${fmt(plan)}</b></td><td style="text-align:right;color:var(--green);font-weight:600">${fmt(real)}</td><td style="text-align:right"><b style="color:${saldo>=0?'var(--green)':'var(--red)'}">${saldo>=0?'+':'-'}${fmt(Math.abs(saldo)).replace('R$ ','')}</b></td><td></td>`;
 }
 function pirAdicionarItem(ci){
   const mes = getMes();
