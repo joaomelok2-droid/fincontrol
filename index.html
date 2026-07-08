@@ -269,6 +269,7 @@ if(SUPABASE_URL !== 'COLE_AQUI_SUA_URL' && SUPABASE_KEY !== 'COLE_AQUI_SUA_ANON_
   <div class="tab" onclick="switchTab(9)">📄 Relatório</div>
   <div class="tab" onclick="switchTab(10)" id="tabSuspensos">🟡 Suspensos</div>
   <div class="tab" id="tabAdmin" style="display:none" onclick="switchTab(11)">⚙️ Admin</div>
+  <div class="tab" id="tabAnalise" style="display:none" onclick="switchTab(12)">📊 Análise</div>
 </div>
 <div class="content-wrap">
 <div class="content">
@@ -654,6 +655,55 @@ if(SUPABASE_URL !== 'COLE_AQUI_SUA_URL' && SUPABASE_KEY !== 'COLE_AQUI_SUA_ANON_
         <tbody id="tbAdmin"></tbody>
       </table>
     </div>
+  </div>
+</div>
+
+<!-- ABA 12: ANÁLISE (só admin) -->
+<div class="tab-pane" id="pane12">
+  <div class="sec-header">
+    <div class="sec-title">📊 Análise Financeira Inteligente</div>
+    <div class="sec-actions">
+      <select id="analiseAnoSel" onchange="renderAnalise()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border2);font-size:13px;background:#fff;color:var(--text);font-family:'DM Sans',sans-serif;outline:none"></select>
+    </div>
+  </div>
+
+  <!-- KPIs do mês -->
+  <div class="grid-4" style="margin-bottom:12px" id="analiseKpis"></div>
+
+  <!-- Gráficos lado a lado -->
+  <div class="grid-2" style="margin-bottom:12px">
+    <div class="card">
+      <div class="card-title" style="margin-bottom:10px">🍕 Gastos por Categoria — Mês Atual</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="chartAnalisePizza"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="margin-bottom:10px">📈 Evolução Mensal por Categoria</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="chartAnaliseEvolucao"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Gráfico de barras total mensal -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title" style="margin-bottom:10px">📅 Total de Gastos por Mês (Ano Selecionado)</div>
+    <div class="chart-wrap" style="height:200px"><canvas id="chartAnaliseMensal"></canvas></div>
+  </div>
+
+  <!-- Tabela por categoria com histórico -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title" style="margin-bottom:10px">📋 Gastos por Categoria — Histórico Mensal</div>
+    <div class="table-wrap" id="analiseHistoricoTabela"></div>
+  </div>
+
+  <!-- Plano de metas -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title" style="margin-bottom:10px">🎯 Plano de Metas — Redução de Gastos</div>
+    <div id="analiseMetas"></div>
+  </div>
+
+  <!-- Top estabelecimentos -->
+  <div class="card">
+    <div class="card-title" style="margin-bottom:10px">🏆 Top 10 Maiores Gastos do Mês</div>
+    <div id="analiseTop10"></div>
   </div>
 </div>
 
@@ -1802,6 +1852,7 @@ function renderTab(i){
   if(i===9) renderRelatorio();
   if(i===10) renderSuspensos();
   if(i===11) renderAdmin();
+  if(i===12) renderAnalise();
 }
 function renderAll(){ renderTab(activeTab); }
 
@@ -4788,6 +4839,8 @@ function admVerificarAdmin(email){
   const tabAdmin = document.getElementById('tabAdmin');
   if(email === ADMIN_EMAIL && tabAdmin){
     tabAdmin.style.display = '';
+    const tabAnalise = document.getElementById('tabAnalise');
+    if(tabAnalise) tabAnalise.style.display = '';
   }
 }
 
@@ -4974,6 +5027,273 @@ async function admSalvarUsuario(){
 function renderAdmin(){
   admCarregarUsuarios();
 }
+
+// ═══════════════════════════════════════════════
+// ANÁLISE FINANCEIRA INTELIGENTE (admin only)
+// ═══════════════════════════════════════════════
+
+// Mapa de categorias automáticas por palavras-chave
+const ANALISE_CATS = {
+  'Alimentação':        /dudu|burguer|tapioca|café|cafe|lanche|pizza|restaurant|mustadeli|gellatos|boka|jotape|comedoria|açougue|acougue|padaria|ifood|rappi|delivery|alimento|mercado|supermercado|atacado|hortifruti|feira/i,
+  'Mercado/Supermercado': /mateus|carrefour|extra|assai|atacadao|atacadão|atakarejo|mix|bongi|master boi|hiper|supermarket/i,
+  'Transporte/Combustível': /posto|combustivel|combustível|gasolina|uber|99|cabify|parking|estacionamento|pedagio|pedágio|localiza|movida|rac|autoviacao|rodoviaria|ônibus|onibus|metro/i,
+  'Saúde/Farmácia':    /farmacia|farmácia|drogasil|ultrafarma|pacheco|droga|remedios|remédios|clinica|clínica|medico|médico|hospital|laboratorio|plano.*saude|unimed|hapvida/i,
+  'Vestuário/Moda':    /renner|zara|c&a|riachuelo|marisa|nidamodas|loja|moda|roupas|calcado|calçado|sapato|acessorios|acessório|lund/i,
+  'Educação':          /escola|britânico|britanico|inglês|ingles|curso|faculdade|universidade|ebac|udemy|alura|programacao|programação|cursinho/i,
+  'Assinaturas/Online': /amazon|netflix|spotify|claude|anthropic|apple|google.*play|microsoft|adobe|youtube|prime|disney|hbo|paramount|globoplay/i,
+  'Encargos Financeiros': /iof|juros|tarifa|multa|mora|encargo|anuidade/i,
+  'Boleto/Dívidas':    /boleto|boleto bancário/i,
+  'Saúde/Beleza':      /barbearia|salao|salão|estetica|estética|manicure|spa|academia|pilates|karate|karatê|gym/i,
+  'Casa/Móveis':       /ferreira costa|leroy|casas bahia|magazine|moveimax|tok.*stok|mobilia|moveis|móveis|eletro/i,
+  'Telefonia':         /tim|claro|vivo|oi|nextel|net|telefon/i,
+  'Serviços':          /ultraclean|limpeza|manutencao|manutenção|reparo|tecnico|técnico|serviço|servico/i,
+  'Pessoal/Outros':    /.*/
+};
+
+function classificarDesc(desc){
+  const d = (desc||'').toLowerCase();
+  for(const [cat, regex] of Object.entries(ANALISE_CATS)){
+    if(regex.test(d)) return cat;
+  }
+  return 'Outros';
+}
+
+// Pega todos os gastos do mês (despesas + compras de cartão)
+function getGastosMes(mesKey){
+  const desp = despesas().filter(x=>x.mes===mesKey && x.status!=='Suspenso');
+  const comp = compras().filter(x=>x.mes===mesKey);
+
+  const itens = [];
+  desp.forEach(d=>{
+    itens.push({
+      desc: d.desc,
+      valor: Number(d.valor||0),
+      cat: classificarSubcat(d.sub, d.desc),
+      fonte: 'Despesa',
+      status: d.status
+    });
+  });
+  comp.forEach(c=>{
+    const cartao = cartoes().find(x=>x.id===c.cartaoId);
+    itens.push({
+      desc: c.desc,
+      valor: Number(c.parcMes||c.valor||0),
+      cat: classificarDesc(c.desc),
+      fonte: cartao?cartao.nome:'Cartão',
+      status: c.status,
+      dono: c.dono
+    });
+  });
+  return itens;
+}
+
+function classificarSubcat(sub, desc){
+  const subMap = {
+    'Alimentos':'Alimentação','Moradia':'Casa/Moradia','Locomoção':'Transporte/Combustível',
+    'Saúde':'Saúde/Farmácia','Educação':'Educação','Lazer':'Lazer/Entretenimento','Outros':'Pessoal/Outros'
+  };
+  return subMap[sub] || classificarDesc(desc);
+}
+
+function agruparPorCat(itens){
+  const cats = {};
+  itens.forEach(it=>{
+    if(!cats[it.cat]) cats[it.cat]={total:0,itens:[]};
+    cats[it.cat].total += it.valor;
+    cats[it.cat].itens.push(it);
+  });
+  return Object.entries(cats).sort((a,b)=>b[1].total-a[1].total);
+}
+
+let _chartAnalisePizza=null, _chartAnaliseEvolucao=null, _chartAnaliseMensal=null;
+
+function renderAnalise(){
+  const mes = getMes();
+  const [ano, m] = mes.split('-').map(Number);
+
+  // Popula select de anos
+  const selAno = document.getElementById('analiseAnoSel');
+  if(selAno && !selAno.dataset.init){
+    selAno.dataset.init='1';
+    selAno.innerHTML='';
+    for(let y=2025;y<=2030;y++){
+      selAno.innerHTML+=`<option value="${y}"${y===ano?' selected':''}>${y}</option>`;
+    }
+  }
+  const anoSel = parseInt(selAno?.value||ano);
+
+  // ── Dados do mês atual ──
+  const itensMes = getGastosMes(mes);
+  const totMes = itensMes.reduce((s,x)=>s+x.valor,0);
+  const totRec = receitas().filter(x=>x.mes===mes).reduce((s,x)=>s+Number(x.liq||0),0);
+  const catsMes = agruparPorCat(itensMes);
+
+  // ── KPIs ──
+  const maiorCat = catsMes[0];
+  document.getElementById('analiseKpis').innerHTML=`
+    <div class="card"><div class="card-title">Total de Gastos (mês)</div><div class="card-value red">${fmt(totMes)}</div><div class="card-sub">${itensMes.length} lançamentos</div></div>
+    <div class="card"><div class="card-title">Receita do Mês</div><div class="card-value green">${fmt(totRec)}</div><div class="card-sub">Saldo: <span style="color:${totRec-totMes>=0?'var(--green)':'var(--red)'}">${fmt(totRec-totMes)}</span></div></div>
+    <div class="card"><div class="card-title">Maior Categoria</div><div class="card-value gold" style="font-size:16px">${maiorCat?maiorCat[0]:'—'}</div><div class="card-sub">${maiorCat?fmt(maiorCat[1].total):''}</div></div>
+    <div class="card"><div class="card-title">% Comprometido</div><div class="card-value" style="color:${totRec>0&&totMes/totRec>0.9?'var(--red)':'var(--text)'}">${totRec>0?((totMes/totRec)*100).toFixed(1)+'%':'—'}</div><div class="card-sub">da receita</div></div>`;
+
+  // ── GRÁFICO PIZZA ──
+  if(_chartAnalisePizza) _chartAnalisePizza.destroy();
+  const cores=['#A32D2D','#C9A84C','#185FA5','#2D7A4F','#855B0B','#7B5EA7','#1A7A7A','#9A3E6E','#2E86AB','#E84855','#3D405B','#81B29A'];
+  const ctxPizza=document.getElementById('chartAnalisePizza');
+  _chartAnalisePizza=new Chart(ctxPizza,{
+    type:'doughnut',
+    data:{
+      labels:catsMes.map(([c])=>c),
+      datasets:[{data:catsMes.map(([,v])=>v.total),backgroundColor:cores,borderWidth:0,hoverOffset:4}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:10},boxWidth:10,padding:6}}}}
+  });
+
+  // ── HISTÓRICO MENSAL (12 meses do ano selecionado) ──
+  const mesesAno=[];
+  const mesesLabels=[];
+  const MESES_PT=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  for(let mi=0;mi<12;mi++){
+    const mk=`${anoSel}-${String(mi+1).padStart(2,'0')}`;
+    mesesAno.push({mk, label:MESES_PT[mi], itens:getGastosMes(mk)});
+    mesesLabels.push(MESES_PT[mi]);
+  }
+
+  // Total por mês
+  const totaisMes=mesesAno.map(m=>m.itens.reduce((s,x)=>s+x.valor,0));
+
+  // ── GRÁFICO BARRAS MENSAIS ──
+  if(_chartAnaliseMensal) _chartAnaliseMensal.destroy();
+  const ctxMensal=document.getElementById('chartAnaliseMensal');
+  _chartAnaliseMensal=new Chart(ctxMensal,{
+    type:'bar',
+    data:{
+      labels:mesesLabels,
+      datasets:[{
+        label:'Total Gastos',
+        data:totaisMes,
+        backgroundColor:mesesAno.map((m,i)=>m.mk===mes?'#C9A84C':'#185FA5'),
+        borderRadius:5
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:10.5}}},
+              y:{ticks:{callback:v=>'R$'+Math.round(v/1000)+'k',font:{size:10.5}},grid:{color:'rgba(180,160,120,.15)'}}}}
+  });
+
+  // ── Todas as categorias que aparecem no ano ──
+  const todasCats=new Set();
+  mesesAno.forEach(m=>agruparPorCat(m.itens).forEach(([c])=>todasCats.add(c)));
+  const catsArr=[...todasCats];
+
+  // ── GRÁFICO EVOLUÇÃO POR CATEGORIA (top 5) ──
+  const top5cats=catsMes.slice(0,5).map(([c])=>c);
+  if(_chartAnaliseEvolucao) _chartAnaliseEvolucao.destroy();
+  const ctxEv=document.getElementById('chartAnaliseEvolucao');
+  _chartAnaliseEvolucao=new Chart(ctxEv,{
+    type:'line',
+    data:{
+      labels:mesesLabels,
+      datasets:top5cats.map((cat,i)=>({
+        label:cat,
+        data:mesesAno.map(m=>{
+          const g=agruparPorCat(m.itens);
+          const f=g.find(([c])=>c===cat);
+          return f?f[1].total:0;
+        }),
+        borderColor:cores[i],
+        backgroundColor:cores[i]+'25',
+        fill:false,
+        tension:0.4,
+        pointRadius:3
+      }))
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:10},boxWidth:10}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:10.5}}},
+              y:{ticks:{callback:v=>'R$'+Math.round(v/1000)+'k',font:{size:10.5}},grid:{color:'rgba(180,160,120,.15)'}}}}
+  });
+
+  // ── TABELA HISTÓRICO POR CATEGORIA ──
+  const mesAtualIdx = m-1;
+  const thCols = mesesAno.map((m,i)=>`<th style="text-align:right;white-space:nowrap;${i===mesAtualIdx?'color:var(--gold-d);font-weight:700':''}">${m.label}</th>`).join('');
+  const rows = catsArr.map(cat=>{
+    const vals = mesesAno.map(m=>{
+      const g=agruparPorCat(m.itens);
+      const f=g.find(([c])=>c===cat);
+      return f?f[1].total:0;
+    });
+    const total=vals.reduce((s,v)=>s+v,0);
+    if(total===0) return '';
+    const cols=vals.map((v,i)=>`<td style="text-align:right;font-size:12px;${i===mesAtualIdx?'background:var(--yellow-bg);font-weight:600':''}">${v>0?fmt(v):'—'}</td>`).join('');
+    return `<tr><td style="font-size:12.5px;font-weight:500;white-space:nowrap">${cat}</td>${cols}<td style="text-align:right;font-weight:700;font-size:12.5px">${fmt(total)}</td></tr>`;
+  }).join('');
+  const totalCols=mesesAno.map((_,i)=>`<td style="text-align:right;font-weight:700;font-size:12px;${i===mesAtualIdx?'background:var(--yellow-bg)':''}">${fmt(totaisMes[i])}</td>`).join('');
+  document.getElementById('analiseHistoricoTabela').innerHTML=`
+    <table style="font-size:12px">
+      <thead><tr><th style="text-align:left">Categoria</th>${thCols}<th style="text-align:right">Total Ano</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><td><b>Total</b></td>${totalCols}<td style="text-align:right;font-weight:700">${fmt(totaisMes.reduce((s,v)=>s+v,0))}</td></tr></tfoot>
+    </table>`;
+
+  // ── PLANO DE METAS ──
+  const metasPct={'Alimentação':20,'Transporte/Combustível':15,'Mercado/Supermercado':10,
+    'Vestuário/Moda':30,'Assinaturas/Online':25,'Encargos Financeiros':90,'Pessoal/Outros':20,'Telefonia':10};
+  const metasRows=catsMes.map(([cat,v])=>{
+    const pct=metasPct[cat]||0;
+    const economia=v.total*(pct/100);
+    const alvo=v.total-economia;
+    const pcTot=totMes>0?((v.total/totMes)*100).toFixed(1):'0';
+    return `<tr>
+      <td style="font-size:12.5px;font-weight:500">${cat}</td>
+      <td style="text-align:right;font-size:12px;color:var(--red)">${fmt(v.total)}</td>
+      <td style="text-align:right;font-size:12px;color:var(--text3)">${pcTot}%</td>
+      <td style="text-align:right;font-size:12px">${pct>0?pct+'%':'—'}</td>
+      <td style="text-align:right;font-size:12px;color:var(--blue)">${pct>0?fmt(alvo):'—'}</td>
+      <td style="text-align:right;font-size:12px;color:var(--green);font-weight:600">${pct>0?fmt(economia):'—'}</td>
+    </tr>`;
+  }).join('');
+  const totEcon=catsMes.reduce((s,[cat,v])=>s+(v.total*((metasPct[cat]||0)/100)),0);
+  document.getElementById('analiseMetas').innerHTML=`
+    <div style="background:var(--green-bg);border-radius:10px;padding:10px 14px;margin-bottom:12px;border:1px solid rgba(45,122,79,.2)">
+      <div style="font-size:12px;color:var(--green-t)">💡 Economia estimada mensal se aplicar todas as metas: <b style="font-size:16px">${fmt(totEcon)}</b></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Categoria</th><th style="text-align:right">Gasto Atual</th><th style="text-align:right">% Total</th><th style="text-align:right">Meta Redução</th><th style="text-align:right">Alvo</th><th style="text-align:right">Economia Est.</th></tr></thead>
+        <tbody>${metasRows}</tbody>
+      </table>
+    </div>`;
+
+  // ── TOP 10 ──
+  const top10=[...itensMes].sort((a,b)=>b.valor-a.valor).slice(0,10);
+  document.getElementById('analiseTop10').innerHTML=top10.length?`
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Descrição</th><th>Categoria</th><th>Fonte</th><th style="text-align:right">Valor</th><th style="text-align:right">% do Total</th></tr></thead>
+        <tbody>${top10.map((it,i)=>{
+          const pct=totMes>0?((it.valor/totMes)*100).toFixed(1):'0';
+          const largura=Math.min(100,parseFloat(pct));
+          return `<tr>
+            <td style="font-size:11px;color:var(--text3);font-weight:700">#${i+1}</td>
+            <td><b>${it.desc}</b></td>
+            <td><span class="badge badge-yellow" style="font-size:10px">${it.cat}</span></td>
+            <td style="font-size:11.5px;color:var(--text3)">${it.fonte}</td>
+            <td style="text-align:right;font-weight:700;color:var(--red)">${fmt(it.valor)}</td>
+            <td style="min-width:100px">
+              <div style="display:flex;align-items:center;gap:6px">
+                <div style="flex:1;height:6px;background:var(--cream3);border-radius:3px"><div style="width:${largura}%;height:6px;background:var(--red);border-radius:3px"></div></div>
+                <span style="font-size:10.5px;color:var(--text3);width:32px">${pct}%</span>
+              </div>
+            </td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>`
+  :`<div class="empty-state"><i class="ti ti-chart-bar-off"></i><p>Nenhum gasto registrado neste mês.</p></div>`;
+}
+
+
 
 // ═══════════════════════════════════════════════
 // SUPABASE SYNC — VERSÃO SIMPLIFICADA
